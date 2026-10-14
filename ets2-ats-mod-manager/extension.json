@@ -1,0 +1,47 @@
+{
+  "$schema": "./node_modules/@pterodactyl/sdk/manifest.schema.json",
+  "id": "ets2-ats-mod-manager",
+  "name": "ETS2-ATS-Mod-Manager",
+  "version": "0.5.0",
+  "requires": {
+    "panel": "^2.0.0-dev",
+    "sdk": "^2.0.0-beta.4",
+    "php": "^8.3"
+  },
+  "description": "Server package presets for ETS2 and ATS.",
+  "provider": "Ets2AtsModManager\\Ets2AtsModManagerProvider",
+  "icon": "truck",
+  "autoload": {
+    "Ets2AtsModManager\\": "src"
+  },
+  "ui": {
+    "entry": "dist/client.js",
+    "mode": "native",
+    "prefix": "eam",
+    "screens": [
+      {
+        "id": "manager",
+        "area": "server",
+        "path": "mod-manager",
+        "nav": {
+          "label": "Mod Manager"
+        },
+        "permission": [
+          "file.read-content"
+        ],
+        "when": {
+          "runtime": true
+        }
+      },
+      {
+        "id": "admin",
+        "area": "admin",
+        "path": "ets2-ats-mod-manager",
+        "nav": {
+          "label": "ETS2-ATS-Mod-Manager",
+          "icon": "truck"
+        }
+      }
+    ]
+  }
+}

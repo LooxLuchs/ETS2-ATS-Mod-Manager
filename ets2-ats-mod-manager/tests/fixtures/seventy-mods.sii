@@ -1,0 +1,713 @@
+SiiNunit
+{
+server_packages_info : _nameless.info {
+ version: 1
+ mod_list: 70
+ mod_list[0]: _nameless.test.000
+ mod_list[1]: _nameless.test.001
+ mod_list[2]: _nameless.test.002
+ mod_list[3]: _nameless.test.003
+ mod_list[4]: _nameless.test.004
+ mod_list[5]: _nameless.test.005
+ mod_list[6]: _nameless.test.006
+ mod_list[7]: _nameless.test.007
+ mod_list[8]: _nameless.test.008
+ mod_list[9]: _nameless.test.009
+ mod_list[10]: _nameless.test.010
+ mod_list[11]: _nameless.test.011
+ mod_list[12]: _nameless.test.012
+ mod_list[13]: _nameless.test.013
+ mod_list[14]: _nameless.test.014
+ mod_list[15]: _nameless.test.015
+ mod_list[16]: _nameless.test.016
+ mod_list[17]: _nameless.test.017
+ mod_list[18]: _nameless.test.018
+ mod_list[19]: _nameless.test.019
+ mod_list[20]: _nameless.test.020
+ mod_list[21]: _nameless.test.021
+ mod_list[22]: _nameless.test.022
+ mod_list[23]: _nameless.test.023
+ mod_list[24]: _nameless.test.024
+ mod_list[25]: _nameless.test.025
+ mod_list[26]: _nameless.test.026
+ mod_list[27]: _nameless.test.027
+ mod_list[28]: _nameless.test.028
+ mod_list[29]: _nameless.test.029
+ mod_list[30]: _nameless.test.030
+ mod_list[31]: _nameless.test.031
+ mod_list[32]: _nameless.test.032
+ mod_list[33]: _nameless.test.033
+ mod_list[34]: _nameless.test.034
+ mod_list[35]: _nameless.test.035
+ mod_list[36]: _nameless.test.036
+ mod_list[37]: _nameless.test.037
+ mod_list[38]: _nameless.test.038
+ mod_list[39]: _nameless.test.039
+ mod_list[40]: _nameless.test.040
+ mod_list[41]: _nameless.test.041
+ mod_list[42]: _nameless.test.042
+ mod_list[43]: _nameless.test.043
+ mod_list[44]: _nameless.test.044
+ mod_list[45]: _nameless.test.045
+ mod_list[46]: _nameless.test.046
+ mod_list[47]: _nameless.test.047
+ mod_list[48]: _nameless.test.048
+ mod_list[49]: _nameless.test.049
+ mod_list[50]: _nameless.test.050
+ mod_list[51]: _nameless.test.051
+ mod_list[52]: _nameless.test.052
+ mod_list[53]: _nameless.test.053
+ mod_list[54]: _nameless.test.054
+ mod_list[55]: _nameless.test.055
+ mod_list[56]: _nameless.test.056
+ mod_list[57]: _nameless.test.057
+ mod_list[58]: _nameless.test.058
+ mod_list[59]: _nameless.test.059
+ mod_list[60]: _nameless.test.060
+ mod_list[61]: _nameless.test.061
+ mod_list[62]: _nameless.test.062
+ mod_list[63]: _nameless.test.063
+ mod_list[64]: _nameless.test.064
+ mod_list[65]: _nameless.test.065
+ mod_list[66]: _nameless.test.066
+ mod_list[67]: _nameless.test.067
+ mod_list[68]: _nameless.test.068
+ mod_list[69]: _nameless.test.069
+ map_name: "/map/europe.mbd"
+ map_dimensions: (-24576000, -31744000, 20480000, 22528000)
+ roads_data_file_name: "/home/server_packages.dat"
+ time_stamp: 1791728685
+ time_compression: 15.560001
+ future_field: "keep { this }: unchanged" // preserved
+}
+server_mod_detail : _nameless.test.000 {
+ package_name: "package_0"
+ mod_name: "MAN TGE 3.140 by Dzordz"
+ checksum: 18446744073709551615
+ mod_id: 5067522809175364042
+ workshop_mod: false
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.001 {
+ package_name: "package_1"
+ mod_name: "MAN F2000 Evo - COG Patc"
+ checksum: 18446744073709551615
+ mod_id: 15644280966790601340
+ workshop_mod: false
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.002 {
+ package_name: "package_2"
+ mod_name: "Mercedes SK II - COG Pat"
+ checksum: 18446744073709551615
+ mod_id: 15644280966790601341
+ workshop_mod: false
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.003 {
+ package_name: "package_3"
+ mod_name: "MAN F2000 Cool Paintjob"
+ checksum: 18446744073709551615
+ mod_id: 15644280966790601342
+ workshop_mod: false
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.004 {
+ package_name: "package_4"
+ mod_name: "GULF Racing - Mercedes S"
+ checksum: 18446744073709551615
+ mod_id: 3325503591
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.005 {
+ package_name: "package_5"
+ mod_name: "Scania S NG Angry Griffi"
+ checksum: 18446744073709551615
+ mod_id: 3325503592
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.006 {
+ package_name: "package_6"
+ mod_name: "redliner scania s"
+ checksum: 18446744073709551615
+ mod_id: 3325503593
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.007 {
+ package_name: "package_7"
+ mod_name: "Brummifreunde Deutschlan"
+ checksum: 18446744073709551615
+ mod_id: 15644280966790601346
+ workshop_mod: false
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.008 {
+ package_name: "package_8"
+ mod_name: "Krone LHV Type 3"
+ checksum: 18446744073709551615
+ mod_id: 3325503595
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.009 {
+ package_name: "package_9"
+ mod_name: "Ekeri Trailers Revision"
+ checksum: 18446744073709551615
+ mod_id: 3325503596
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.010 {
+ package_name: "package_10"
+ mod_name: "Triple Extendable Flatbe"
+ checksum: 18446744073709551615
+ mod_id: 3325503597
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.011 {
+ package_name: "package_11"
+ mod_name: "Arnook's Container Pack"
+ checksum: 18446744073709551615
+ mod_id: 3325503598
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.012 {
+ package_name: "package_12"
+ mod_name: "Kraker Walkingfloor Pack"
+ checksum: 18446744073709551615
+ mod_id: 3325503599
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.013 {
+ package_name: "package_13"
+ mod_name: "Skins for Kraker Walking"
+ checksum: 18446744073709551615
+ mod_id: 3325503600
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.014 {
+ package_name: "package_14"
+ mod_name: "Schroeder Volume Curtain"
+ checksum: 18446744073709551615
+ mod_id: 3325503601
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.015 {
+ package_name: "package_15"
+ mod_name: "SCS Krone Realistic Skin"
+ checksum: 18446744073709551615
+ mod_id: 3325503602
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.016 {
+ package_name: "package_16"
+ mod_name: "THIMM"
+ checksum: 18446744073709551615
+ mod_id: 3325503603
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.017 {
+ package_name: "package_17"
+ mod_name: "Top Einzelh\xc3\xa4ndler und U"
+ checksum: 18446744073709551615
+ mod_id: 3325503604
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.018 {
+ package_name: "package_18"
+ mod_name: "Boosterwave all Trailer"
+ checksum: 18446744073709551615
+ mod_id: 15644280966790601357
+ workshop_mod: false
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.019 {
+ package_name: "package_19"
+ mod_name: "SCS TRAILER TUNING PACK"
+ checksum: 18446744073709551615
+ mod_id: 3325503606
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.020 {
+ package_name: "package_20"
+ mod_name: "SGD TRAILER PACK"
+ checksum: 18446744073709551615
+ mod_id: 3325503607
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.021 {
+ package_name: "package_21"
+ mod_name: "SGD CONTAINER TRAILER PA"
+ checksum: 18446744073709551615
+ mod_id: 3325503608
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.022 {
+ package_name: "package_22"
+ mod_name: "SiSL's Mega Pack"
+ checksum: 18446744073709551615
+ mod_id: 3325503609
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.023 {
+ package_name: "package_23"
+ mod_name: "Just clutter revisited"
+ checksum: 18446744073709551615
+ mod_id: 3325503610
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.024 {
+ package_name: "package_24"
+ mod_name: "Tjs HD GPS Mod"
+ checksum: 18446744073709551615
+ mod_id: 3325503611
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.025 {
+ package_name: "package_25"
+ mod_name: "Interior Addon by Wolli"
+ checksum: 18446744073709551615
+ mod_id: 15644280966790601364
+ workshop_mod: false
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.026 {
+ package_name: "package_26"
+ mod_name: "SCS wheels REWORK V2"
+ checksum: 18446744073709551615
+ mod_id: 3325503613
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.027 {
+ package_name: "package_27"
+ mod_name: "Kelsa Addon Packs"
+ checksum: 18446744073709551615
+ mod_id: 3325503614
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.028 {
+ package_name: "package_28"
+ mod_name: "SGD TRUCK TUNING PACK"
+ checksum: 18446744073709551615
+ mod_id: 3325503615
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.029 {
+ package_name: "package_29"
+ mod_name: "Truck Accessory Pack"
+ checksum: 18446744073709551615
+ mod_id: 3325503616
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.030 {
+ package_name: "package_30"
+ mod_name: "EKO Truck Parts"
+ checksum: 18446744073709551615
+ mod_id: 3325503617
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.031 {
+ package_name: "package_31"
+ mod_name: "Strands Ambassador 9\""
+ checksum: 18446744073709551615
+ mod_id: 3325503618
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.032 {
+ package_name: "package_32"
+ mod_name: "LAZER LIGHTS"
+ checksum: 18446744073709551615
+ mod_id: 3325503619
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.033 {
+ package_name: "package_33"
+ mod_name: "Venus Scania NG Parts"
+ checksum: 18446744073709551615
+ mod_id: 3325503620
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.034 {
+ package_name: "package_34"
+ mod_name: "Venus Scania Badge"
+ checksum: 18446744073709551615
+ mod_id: 3325503621
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.035 {
+ package_name: "package_35"
+ mod_name: "BigT Britax LED Beacons"
+ checksum: 18446744073709551615
+ mod_id: 3325503622
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.036 {
+ package_name: "package_36"
+ mod_name: "BigT LED Side Marker"
+ checksum: 18446744073709551615
+ mod_id: 3325503623
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.037 {
+ package_name: "package_37"
+ mod_name: "BigT Flash Beacon"
+ checksum: 18446744073709551615
+ mod_id: 3325503624
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.038 {
+ package_name: "package_38"
+ mod_name: "BC-Talmu pack"
+ checksum: 18446744073709551615
+ mod_id: 3325503625
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.039 {
+ package_name: "package_39"
+ mod_name: "BC-Exterior Belka"
+ checksum: 18446744073709551615
+ mod_id: 3325503626
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.040 {
+ package_name: "package_40"
+ mod_name: "BC-Interior Belka"
+ checksum: 18446744073709551615
+ mod_id: 3325503627
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.041 {
+ package_name: "package_41"
+ mod_name: "Background Lights"
+ checksum: 18446744073709551615
+ mod_id: 3325503628
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.042 {
+ package_name: "package_42"
+ mod_name: "TAS interior accessory"
+ checksum: 18446744073709551615
+ mod_id: 15644280966790601381
+ workshop_mod: false
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.043 {
+ package_name: "package_43"
+ mod_name: "TAS Parts Old School"
+ checksum: 18446744073709551615
+ mod_id: 15644280966790601382
+ workshop_mod: false
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.044 {
+ package_name: "package_44"
+ mod_name: "Farsel's Cab Cats"
+ checksum: 18446744073709551615
+ mod_id: 3325503631
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.045 {
+ package_name: "package_45"
+ mod_name: "Dog"
+ checksum: 18446744073709551615
+ mod_id: 3325503632
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.046 {
+ package_name: "package_46"
+ mod_name: "Momiji co-driver"
+ checksum: 18446744073709551615
+ mod_id: 3325503633
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.047 {
+ package_name: "package_47"
+ mod_name: "Tifa Lockhart co-driver"
+ checksum: 18446744073709551615
+ mod_id: 3325503634
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.048 {
+ package_name: "package_48"
+ mod_name: "Realistic Cabin Soundpro"
+ checksum: 18446744073709551615
+ mod_id: 3325503635
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.049 {
+ package_name: "package_49"
+ mod_name: "Engines sound pack"
+ checksum: 18446744073709551615
+ mod_id: 15644280966790601388
+ workshop_mod: false
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.050 {
+ package_name: "package_50"
+ mod_name: "Hadley Airhorn Pack"
+ checksum: 18446744073709551615
+ mod_id: 3325503637
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.051 {
+ package_name: "package_51"
+ mod_name: "Wind Tire Trailer Effects"
+ checksum: 18446744073709551615
+ mod_id: 3325503638
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.052 {
+ package_name: "package_52"
+ mod_name: "CarLife+ Dark Mode"
+ checksum: 18446744073709551615
+ mod_id: 3325503639
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.053 {
+ package_name: "package_53"
+ mod_name: "Apple Siri Voice"
+ checksum: 18446744073709551615
+ mod_id: 3325503640
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.054 {
+ package_name: "package_54"
+ mod_name: "Geraldine \xe2\x80\x93 German Nav"
+ checksum: 18446744073709551615
+ mod_id: 3325503641
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.055 {
+ package_name: "package_55"
+ mod_name: "Kathleen Deutsche Navi"
+ checksum: 18446744073709551615
+ mod_id: 3325503642
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.056 {
+ package_name: "package_56"
+ mod_name: "ETS2 Ultra Realistic Tru"
+ checksum: 18446744073709551615
+ mod_id: 3325503643
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.057 {
+ package_name: "package_57"
+ mod_name: "SCANIA DC13 & DC16"
+ checksum: 18446744073709551615
+ mod_id: 3325503644
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.058 {
+ package_name: "package_58"
+ mod_name: "Iveco Cursor stock sound"
+ checksum: 18446744073709551615
+ mod_id: 3325503645
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.059 {
+ package_name: "package_59"
+ mod_name: "MAN 23.364 2001"
+ checksum: 18446744073709551615
+ mod_id: 15644280966790601398
+ workshop_mod: false
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.060 {
+ package_name: "package_60"
+ mod_name: "Sound Fixes Pack"
+ checksum: 18446744073709551615
+ mod_id: 3325503647
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.061 {
+ package_name: "package_61"
+ mod_name: "Real companies gas sta"
+ checksum: 18446744073709551615
+ mod_id: 3325503648
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.062 {
+ package_name: "package_62"
+ mod_name: "NFS Traffic Pack"
+ checksum: 18446744073709551615
+ mod_id: 15644280966790601401
+ workshop_mod: false
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.063 {
+ package_name: "package_63"
+ mod_name: "160 Traffic Trailer Pack"
+ checksum: 18446744073709551615
+ mod_id: 15644280966790601402
+ workshop_mod: false
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.064 {
+ package_name: "package_64"
+ mod_name: "Bus Ai 3.0.6"
+ checksum: 18446744073709551615
+ mod_id: 15644280966790601403
+ workshop_mod: false
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.065 {
+ package_name: "package_65"
+ mod_name: "AI BAG Polizei"
+ checksum: 18446744073709551615
+ mod_id: 15644280966790601404
+ workshop_mod: false
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.066 {
+ package_name: "package_66"
+ mod_name: "Interior Light Emblems"
+ checksum: 18446744073709551615
+ mod_id: 3325503653
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.067 {
+ package_name: "package_67"
+ mod_name: "Interior Light Emblems"
+ checksum: 18446744073709551615
+ mod_id: 3325503654
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+server_mod_detail : _nameless.test.068 {
+ package_name: "package_68"
+ mod_name: "Realistic FOV Mirror"
+ checksum: 18446744073709551615
+ mod_id: 3325503655
+ workshop_mod: true
+ optional_mod: true
+ full_name: false
+}
+server_mod_detail : _nameless.test.069 {
+ package_name: "package_69"
+ mod_name: "Realistic Rain v5.2.1"
+ checksum: 18446744073709551615
+ mod_id: 1787041596
+ workshop_mod: true
+ optional_mod: false
+ full_name: false
+}
+}

@@ -1,0 +1,477 @@
+@import "tailwindcss/theme.css" layer(theme) prefix(smm);
+@import "tailwindcss/utilities.css" layer(utilities) prefix(smm);
+@import "@pterodactyl/sdk/theme.css";
+@source './**/*.{ts,tsx}';
+
+.smm-root {
+  color: var(--foreground, CanvasText);
+  font-family: var(--font-sans, sans-serif);
+  line-height: 1.5;
+}
+.smm-root h1 {
+  font-size: 1.7rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+}
+.smm-root h2 {
+  font-size: 1.15rem;
+  font-weight: 650;
+  margin: 0;
+}
+.smm-root h3 {
+  font-size: 1rem;
+  font-weight: 650;
+}
+.smm-root p {
+  margin: 0.4rem 0;
+}
+.smm-muted {
+  color: var(--muted-foreground, GrayText);
+  font-size: 0.85rem;
+}
+.smm-eyebrow {
+  color: var(--primary, Highlight);
+  letter-spacing: 0.14em;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.smm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.4rem;
+  flex-wrap: wrap;
+}
+.smm-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.smm-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 285px) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+.smm-presets {
+  display: grid;
+  gap: 0.7rem;
+}
+.smm-presets h2 {
+  margin: 1rem 0 0.3rem;
+}
+.smm-preset {
+  color: var(--foreground, CanvasText);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  text-align: left;
+  padding: 1rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border, GrayText);
+  background: var(--card, Canvas);
+  transition: border-color 0.15s;
+  overflow-wrap: anywhere;
+}
+.smm-preset small {
+  color: var(--muted-foreground, GrayText);
+  font-size: 0.75rem;
+}
+.smm-root button {
+  cursor: pointer;
+}
+.smm-row-actions button,
+.smm-placeholder-list button,
+.smm-quick-drop li button,
+.smm-alert button {
+  color: inherit;
+}
+.smm-root button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.smm-root button:focus-visible,
+.smm-root a:focus-visible,
+.smm-root input:focus-visible,
+.smm-root select:focus-visible {
+  outline: 2px solid var(--ring, Highlight);
+  outline-offset: 3px;
+}
+.smm-selected {
+  border-color: var(--primary, Highlight);
+  background: color-mix(in srgb, var(--card, Canvas) 92%, var(--primary, Highlight));
+  box-shadow: inset 3px 0 var(--primary, Highlight);
+}
+.smm-preset:hover {
+  border-color: var(--primary, Highlight);
+}
+.smm-panel {
+  color: var(--card-foreground, var(--foreground, CanvasText));
+  background: var(--card, Canvas);
+  border: 1px solid var(--border, GrayText);
+  border-radius: 0.85rem;
+  padding: 1.5rem;
+  min-width: 0;
+}
+.smm-panel .smm-header p {
+  overflow-wrap: anywhere;
+}
+.smm-stats {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr 1.2fr;
+  gap: 1rem;
+  padding: 1rem 0 1.5rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border, GrayText);
+}
+.smm-stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.smm-stats strong {
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+.smm-stats span {
+  font-size: 0.75rem;
+  color: var(--muted-foreground, GrayText);
+}
+.smm-badge {
+  display: inline-block;
+  width: fit-content;
+  font-size: 0.66rem;
+  border-radius: 0.3rem;
+  padding: 0.2rem 0.45rem;
+  background: var(--muted, Canvas);
+  color: var(--muted-foreground, GrayText);
+  white-space: nowrap;
+}
+.smm-live {
+  background: color-mix(
+    in srgb,
+    var(--success, var(--primary, Highlight)) 12%,
+    var(--card, Canvas)
+  );
+  color: var(--foreground, CanvasText);
+}
+.smm-link {
+  color: var(--primary, LinkText);
+  text-decoration: none;
+}
+.smm-link:hover {
+  text-decoration: underline;
+}
+.smm-mods {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.smm-draft-status {
+  display: grid;
+  margin-bottom: 1rem;
+}
+.smm-draft-status > * {
+  grid-area: 1 / 1;
+  margin-bottom: 0;
+  align-self: center;
+}
+.smm-mods li {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.9rem 0.2rem;
+  border-bottom: 1px solid var(--muted, Canvas);
+}
+.smm-mods li.smm-dragging {
+  background: var(--muted, Canvas);
+  box-shadow: inset 3px 0 var(--primary, Highlight);
+  border-radius: 0.35rem;
+  opacity: 0.65;
+  cursor: grabbing;
+}
+.smm-quick {
+  margin-top: 1.5rem;
+}
+.smm-quick h2 {
+  margin-bottom: 1rem;
+}
+.smm-quick-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+.smm-quick-card {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--border, GrayText);
+  border-radius: 0.6rem;
+  background: var(--sunken, var(--background, Canvas));
+}
+.smm-quick-card h3 {
+  margin: 0 0 0.75rem;
+}
+.smm-quick-card.smm-form h3 {
+  margin-bottom: 0;
+}
+.smm-quick-presets {
+  width: 100%;
+  max-width: 20rem;
+  box-sizing: border-box;
+}
+.smm-quick-select-row {
+  display: flex;
+  align-items: end;
+  gap: 0.5rem;
+}
+.smm-quick-select-row > button {
+  flex-shrink: 0;
+}
+.smm-root .smm-quick-preset-field {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.75rem;
+}
+.smm-root .smm-quick-preset-field select {
+  min-width: 0;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.8rem;
+}
+.smm-quick-presets > .smm-muted {
+  margin-top: 0.7rem;
+  font-size: 0.75rem;
+}
+.smm-quick-save {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border, GrayText);
+}
+.smm-quick-save .smm-muted {
+  font-size: 0.75rem;
+}
+@media (max-width: 750px) {
+  .smm-quick-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.smm-quick-drop {
+  border: 1px dashed var(--border, GrayText);
+  padding: 0.85rem;
+  border-radius: 0.5rem;
+  transition:
+    background 100ms,
+    border-color 100ms;
+}
+.smm-quick-drop.smm-drop-hover {
+  background: color-mix(in srgb, var(--primary, Highlight) 8%, var(--card, Canvas));
+  border-color: var(--primary, Highlight);
+}
+.smm-quick-drop ul {
+  list-style: none;
+  margin: 0.75rem 0;
+  padding: 0;
+  font-size: 0.8rem;
+}
+.smm-quick-drop li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 1.6rem;
+}
+.smm-quick-drop li button {
+  padding: 0 0.5rem;
+}
+.smm-quick > .smm-alert {
+  margin-top: 1rem;
+  margin-bottom: 0;
+}
+.smm-position {
+  width: 1.8rem;
+  text-align: center;
+  flex-shrink: 0;
+  color: var(--muted-foreground, GrayText);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+.smm-mod-name {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.smm-mod-name strong {
+  font-size: 0.85rem;
+  font-weight: 550;
+}
+.smm-mod-name small {
+  color: var(--muted-foreground, GrayText);
+  font-size: 0.7rem;
+}
+.smm-tags {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  justify-content: end;
+}
+.smm-row-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+.smm-row-actions button,
+.smm-placeholder-list button {
+  border: 1px solid var(--border, GrayText);
+  border-radius: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  background: transparent;
+}
+.smm-row-actions button:hover {
+  background: var(--muted, Canvas);
+}
+.smm-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  border: 1px solid
+    color-mix(in srgb, var(--success, var(--primary, Highlight)) 45%, var(--border, GrayText));
+  background: color-mix(in srgb, var(--success, var(--primary, Highlight)) 8%, var(--card, Canvas));
+  color: var(--foreground, CanvasText);
+  padding: 0.85rem 1rem;
+  border-radius: 0.55rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+.smm-warning {
+  background: color-mix(in srgb, var(--warning, var(--primary, Highlight)) 8%, var(--card, Canvas));
+  border-color: color-mix(
+    in srgb,
+    var(--warning, var(--primary, Highlight)) 45%,
+    var(--border, GrayText)
+  );
+  color: var(--foreground, CanvasText);
+}
+.smm-error {
+  color: var(--destructive, CanvasText);
+}
+.smm-alert.smm-error {
+  background: color-mix(in srgb, var(--destructive, CanvasText) 8%, var(--card, Canvas));
+  border-color: color-mix(in srgb, var(--destructive, CanvasText) 45%, var(--border, GrayText));
+  color: var(--foreground, CanvasText);
+}
+.smm-form {
+  display: grid;
+  gap: 1rem;
+}
+.smm-root label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+.smm-root input:not([type="checkbox"]),
+.smm-root select {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--background, Canvas);
+  color: var(--foreground, CanvasText);
+  border: 1px solid var(--input, var(--border, GrayText));
+  border-radius: 0.4rem;
+  padding: 0.65rem 0.75rem;
+}
+.smm-root input[type="file"] {
+  font-size: 0.8rem;
+}
+.smm-root .smm-checkbox {
+  flex-direction: row;
+  align-items: center;
+}
+.smm-root input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--primary, Highlight);
+}
+.smm-footer {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border, GrayText);
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.smm-footnote {
+  margin-top: 1rem !important;
+}
+.smm-placeholder-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.68rem;
+  font-family: var(--font-mono, monospace);
+}
+.smm-table-wrap {
+  overflow-x: auto;
+}
+.smm-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.85rem;
+}
+.smm-table th {
+  color: var(--muted-foreground, GrayText);
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+.smm-table th,
+.smm-table td {
+  padding: 1rem 0.5rem;
+  border-bottom: 1px solid var(--muted, Canvas);
+}
+.smm-table code {
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+@media (max-width: 900px) {
+  .smm-layout {
+    grid-template-columns: 1fr;
+  }
+  .smm-presets {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+  .smm-presets h2 {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 550px) {
+  .smm-panel {
+    padding: 1rem;
+  }
+  .smm-stats {
+    grid-template-columns: 1fr;
+  }
+  .smm-tags {
+    max-width: 90px;
+  }
+  .smm-row-actions {
+    flex-direction: column;
+  }
+}
+
+.smm-drag-handle {
+  color: var(--muted-foreground, GrayText);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  padding: 0.25rem 0.1rem;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+}

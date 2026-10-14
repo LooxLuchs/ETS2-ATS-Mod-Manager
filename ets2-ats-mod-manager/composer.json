@@ -1,0 +1,12 @@
+{
+    "description": "Server package presets for ETS2 and ATS.",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Ets2AtsModManager\\": "src/"
+        }
+    },
+    "config": {
+        "autoloader-suffix": "Ets2AtsModManagerExtension"
+    }
+}

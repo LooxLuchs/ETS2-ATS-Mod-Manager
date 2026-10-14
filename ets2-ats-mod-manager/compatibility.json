@@ -1,0 +1,16 @@
+{
+  "panel_repository": "https://github.com/pterodactyl/panel",
+  "panel_branch": "2.0-develop",
+  "panel_commit": "8e07ac97ab42d6b65b144ebf81d5f47da4f4fad1",
+  "sdk": "2.0.0-beta.4",
+  "php": ">=8.3 <9",
+  "database": "MySQL or MariaDB",
+  "verified": [
+    "PHP 8.5.4",
+    "Node 22.22.1",
+    "MariaDB 11.8.6",
+    "SDK integration runtime",
+    "panel HTTP middleware with fake Wings"
+  ],
+  "game_runtime_verified": false
+}

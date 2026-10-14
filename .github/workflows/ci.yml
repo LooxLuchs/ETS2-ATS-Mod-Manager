@@ -1,0 +1,128 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testing
+          MYSQL_DATABASE: scs_manager_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptesting"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      DB_HOST: 127.0.0.1
+      DB_DATABASE: scs_manager_test
+      DB_USERNAME: root
+      DB_PASSWORD: testing
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check version metadata
+        id: version
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const root = 'ets2-ats-mod-manager/';
+          const manifest = JSON.parse(readFileSync(root + 'extension.json'));
+          const pkg = JSON.parse(readFileSync(root + 'package.json'));
+          const lock = JSON.parse(readFileSync(root + 'package-lock.json'));
+          const version = manifest.version;
+          if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('Expected a semantic version.');
+          if ([pkg.version, lock.version, lock.packages[''].version].some(v => v !== version))
+            throw new Error('Manifest and package versions differ.');
+          if (process.env.GITHUB_REF_TYPE === 'tag' && process.env.GITHUB_REF_NAME !== 'v' + version)
+            throw new Error('Release tag must match the manifest version.');
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          JS
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --global npm@11
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, mbstring, zip, pdo_mysql
+          tools: composer
+          coverage: none
+      - uses: actions/checkout@v4
+        with:
+          repository: pterodactyl/panel
+          ref: 8e07ac97ab42d6b65b144ebf81d5f47da4f4fad1
+          path: .panel
+      - run: composer install --no-interaction --no-progress --no-scripts
+        working-directory: .panel
+      - run: npm run prepare:sdk -- ../.panel
+        working-directory: ets2-ats-mod-manager
+      - run: npm ci && npm run typecheck && npm test && npm run test:php && npm run build
+        working-directory: ets2-ats-mod-manager
+      - run: php artisan migrate --force
+        working-directory: .panel
+      - run: php .panel/artisan p:extension:install "$GITHUB_WORKSPACE/ets2-ats-mod-manager" --enable
+      - run: PANEL_PATH="$GITHUB_WORKSPACE/.panel" php .panel/vendor/bin/phpunit -c ets2-ats-mod-manager/tests/phpunit.xml
+      - name: Package, include license and verify checksum
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          php .panel/artisan p:extension:doctor ets2-ats-mod-manager
+          php .panel/artisan p:extension:pack ets2-ats-mod-manager --output="artifacts/ets2-ats-mod-manager-${VERSION}.pteroext"
+          php ets2-ats-mod-manager/scripts/finalize-package.php "artifacts/ets2-ats-mod-manager-${VERSION}.pteroext"
+          cd artifacts
+          sha256sum -c "ets2-ats-mod-manager-${VERSION}.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ets2-ats-mod-manager-${{ steps.version.outputs.version }}
+          path: |
+            artifacts/ets2-ats-mod-manager-${{ steps.version.outputs.version }}.pteroext
+            artifacts/ets2-ats-mod-manager-${{ steps.version.outputs.version }}.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ets2-ats-mod-manager-${{ needs.validate.outputs.version }}
+          path: artifacts
+      - name: Publish tested early development release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          cd artifacts
+          sha256sum -c "ets2-ats-mod-manager-${RELEASE_TAG#v}.sha256"
+          cd ..
+          gh release create "$RELEASE_TAG" artifacts/*.pteroext artifacts/*.sha256 \
+            --verify-tag --prerelease --title "ETS2-ATS-Mod-Manager $RELEASE_TAG" \
+            --notes-file docs/RELEASE-NOTES.md
