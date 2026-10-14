@@ -124,5 +124,5 @@ jobs:
           sha256sum -c "ets2-ats-mod-manager-${RELEASE_TAG#v}.sha256"
           cd ..
           gh release create "$RELEASE_TAG" artifacts/*.pteroext artifacts/*.sha256 \
-            --verify-tag --prerelease --title "ETS2-ATS-Mod-Manager $RELEASE_TAG" \
+            --verify-tag --latest --title "ETS2-ATS-Mod-Manager $RELEASE_TAG" \
             --notes-file docs/RELEASE-NOTES.md

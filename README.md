@@ -115,7 +115,7 @@ npm run build
 
 Use Node 22.12 or newer, npm 11, and PHP with the required extensions. Full [development and Panel integration instructions](ets2-ats-mod-manager/README.md#development-and-tests), [validation evidence](artifacts/VALIDATION.md) and the [changelog](ets2-ats-mod-manager/CHANGELOG.md) are included.
 
-The [Build and release workflow](.github/workflows/ci.yml) runs checks and packages the extension for pushes, pull requests and manual runs. Download its `.pteroext` and SHA-256 from the run's artifacts. A matching version tag such as `v0.5.1` publishes those tested files as a GitHub prerelease. Ordinary branch builds do not create releases. Build outputs, dependencies and SDK caches are excluded from Git.
+The [Build and release workflow](.github/workflows/ci.yml) runs checks and packages the extension for pushes, pull requests and manual runs. Download its `.pteroext` and SHA-256 from the run's artifacts. A matching version tag such as `v0.5.1` publishes those tested files as a GitHub release marked **Latest**, visible in the repository's Releases sidebar. Ordinary branch builds do not create releases. Build outputs, dependencies and SDK caches are excluded from Git.
 
 ## License and attribution
 

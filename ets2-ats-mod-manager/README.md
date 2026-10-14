@@ -151,4 +151,4 @@ php /path/ets2-ats-mod-manager/scripts/finalize-package.php /path/artifacts/ets2
 
 CI validates frontend, PHP parser, Panel endpoints and packaging against the pinned commit. Before production rollout, use one ETS2 and one ATS test server: import a valid export, switch presets and restart; then verify changed order, experimental removal and recovery. Claim game compatibility only for cases actually tested.
 
-The finalization script adds this README, the changelog and the repository MIT license to the archive and writes a SHA-256 sidecar. GitHub Actions publishes the tested package as a workflow artifact. Matching `v<version>` tags create prereleases after validation; ordinary pushes and manual builds do not publish releases.
+The finalization script adds this README, the changelog and the repository MIT license to the archive and writes a SHA-256 sidecar. GitHub Actions publishes the tested package as a workflow artifact. Matching `v<version>` tags create releases marked **Latest** after validation; ordinary pushes and manual builds do not publish releases.
