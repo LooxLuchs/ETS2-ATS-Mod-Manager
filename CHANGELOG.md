@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2
+
+- Removed the blue game/server-packages label above the Mod Manager heading.
+
 ## 0.5.1
 
 - Added previews of Mod Manager and Console Quick Switcher to the repository README.
@@ -18,5 +22,3 @@ This is the first GitHub release and an early development version. Development, 
 - Verified backups, server locking, stale-file checks and interrupted-operation recovery. All new working files stay inside the extension directory.
 - Theme-aware interface and English labels, messages and documentation.
 - MIT license, installation and usage guides, and GitHub Actions build/test/package and prerelease publishing.
-
-Earlier internal snapshots are documented in [development history](docs/DEVELOPMENT-HISTORY.md).

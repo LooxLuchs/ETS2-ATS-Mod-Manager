@@ -12,3 +12,4 @@
 /.cache/
 /coverage/
 *.pteroext
+/docs/DEVELOPMENT-HISTORY.md

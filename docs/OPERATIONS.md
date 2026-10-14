@@ -97,8 +97,8 @@ Check and package from the Panel directory:
 
 ```sh
 php artisan p:extension:doctor /path/ets2-ats-mod-manager
-php artisan p:extension:pack /path/ets2-ats-mod-manager --output=/path/artifacts/ets2-ats-mod-manager-0.5.1.pteroext
-php /path/ets2-ats-mod-manager/scripts/finalize-package.php /path/artifacts/ets2-ats-mod-manager-0.5.1.pteroext
+php artisan p:extension:pack /path/ets2-ats-mod-manager --output=/path/artifacts/ets2-ats-mod-manager-0.5.2.pteroext
+php /path/ets2-ats-mod-manager/scripts/finalize-package.php /path/artifacts/ets2-ats-mod-manager-0.5.2.pteroext
 ```
 
 CI validates frontend, PHP parser, Panel endpoints and packaging against the pinned commit. Before production rollout, use one ETS2 and one ATS test server: import a valid export, switch presets and restart; then verify changed order, experimental removal and recovery. Claim game compatibility only for cases actually tested.

@@ -234,9 +234,6 @@ export default function ManagerScreen() {
       <div className="smm-root">
         <header className="smm-header">
           <div>
-            <p className="smm-eyebrow">
-              {data?.activation.game.toUpperCase() ?? "SCS"} · SERVER PACKAGES
-            </p>
             <h1>Mod Manager</h1>
             <p className="smm-muted">Manage server packages, presets and mod load order.</p>
           </div>

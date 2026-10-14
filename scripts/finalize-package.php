@@ -27,7 +27,6 @@ try {
         'CHANGELOG.md' => $extension.'/CHANGELOG.md',
         'compatibility.json' => $extension.'/compatibility.json',
         'docs/OPERATIONS.md' => $extension.'/docs/OPERATIONS.md',
-        'docs/DEVELOPMENT-HISTORY.md' => $extension.'/docs/DEVELOPMENT-HISTORY.md',
         'docs/previews/modmanager.png' => $extension.'/docs/previews/modmanager.png',
         'docs/previews/mod_manager-quickswitch.png' => $extension.'/docs/previews/mod_manager-quickswitch.png',
     ];
