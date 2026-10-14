@@ -24,7 +24,7 @@ Preset Quick Select, Save as preset and two-file Quick Drop.
 
 - Pterodactyl **v2** with native extension support, PHP 8.3 or newer, and MySQL or MariaDB. Pterodactyl 1.x and Blueprint are not supported.
 - ETS2 or ATS dedicated-server eggs and access to their server files through Wings.
-- Administrator access to the Panel and its installation directory.
+- Administrator access to the Panel.
 
 The extension is tested against Panel commit `8e07ac97ab42d6b65b144ebf81d5f47da4f4fad1` on `2.0-develop` and SDK `2.0.0-beta.4`. See [compatibility.json](ets2-ats-mod-manager/compatibility.json) for the tested environment. Custom Buttons does not need to be installed.
 
@@ -36,6 +36,8 @@ The extension is tested against Panel commit `8e07ac97ab42d6b65b144ebf81d5f47da4
 4. Continue with **Configure each egg's package directory** below.
 
 ### Configure each egg's package directory
+
+In **Admin → ETS2-ATS-Mod-Manager**, create an activation for each supported egg. Select the egg and game, enter the package directory, and enable the activation.
 
 Use the directory from which that dedicated server actually loads `server_packages.sii` and `server_packages.dat`. Common paths are:
 
