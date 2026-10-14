@@ -4,6 +4,20 @@ Manage Euro Truck Simulator 2 and American Truck Simulator dedicated-server pack
 
 **Version 0.5.0 is the first release of this project and is an early development version. Development was AI-assisted, including implementation, documentation and automated tests.** Automated checks cover the extension and Panel integration with simulated Wings file operations; game compatibility has not yet been verified on a real ETS2/ATS server. Removing mods is experimental because the binary map data is preserved rather than regenerated.
 
+## Preview
+
+### Mod Manager
+
+Presets, active package metadata and editable mod load order.
+
+![Mod Manager showing presets, active package metadata and mod load order](docs/previews/modmanager.png)
+
+### Console Quick Switcher
+
+Preset Quick Select, Save as preset and two-file Quick Drop.
+
+![Console Quick Switcher with preset selection, save-as-preset and Quick Drop](docs/previews/mod_manager-quickswitch.png)
+
 ## 1. Install the extension
 
 ### Requirements
@@ -16,13 +30,8 @@ The extension is tested against Panel commit `8e07ac97ab42d6b65b144ebf81d5f47da4
 
 ### Download and install
 
-1. Open [Releases](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager/releases) and download `ets2-ats-mod-manager-0.5.0.pteroext` and its `.sha256` file. This repository is private, so you must be signed in with repository access.
-2. Upload both files to the Panel host. Optionally verify the download in their directory:
-
-   ```sh
-   sha256sum -c ets2-ats-mod-manager-0.5.0.sha256
-   ```
-
+1. Open [Releases](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager/releases) and download `ets2-ats-mod-manager-0.5.0.pteroext`. This repository is private, so you must be signed in with repository access.
+2. Upload the `.pteroext` file to the Panel host.
 3. In the Panel directory, install and enable the extension:
 
    ```sh
