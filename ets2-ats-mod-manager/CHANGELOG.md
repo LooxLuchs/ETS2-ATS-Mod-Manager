@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+- Added previews of Mod Manager and Console Quick Switcher to the repository README.
+- Simplified the installation guide to require only the `.pteroext` download.
+- Updated version metadata and packaged documentation for the new release.
+
 ## 0.5.0 — First release
 
 This is the first GitHub release and an early development version. Development, documentation and automated tests were AI-assisted.

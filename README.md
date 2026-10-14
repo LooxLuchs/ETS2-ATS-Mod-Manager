@@ -2,7 +2,7 @@
 
 Manage Euro Truck Simulator 2 and American Truck Simulator dedicated-server packages from Pterodactyl v2. Keep named presets, switch the active package, view package metadata and Workshop links, and edit mod load order.
 
-**Version 0.5.0 is the first release of this project and is an early development version. Development was AI-assisted, including implementation, documentation and automated tests.** Automated checks cover the extension and Panel integration with simulated Wings file operations; game compatibility has not yet been verified on a real ETS2/ATS server. Removing mods is experimental because the binary map data is preserved rather than regenerated.
+**Current version: 0.5.1. This project is in early development; 0.5.0 was its first release. Development was AI-assisted, including implementation, documentation and automated tests.** Automated checks cover the extension and Panel integration with simulated Wings file operations; game compatibility has not yet been verified on a real ETS2/ATS server. Removing mods is experimental because the binary map data is preserved rather than regenerated.
 
 ## Preview
 
@@ -30,13 +30,13 @@ The extension is tested against Panel commit `8e07ac97ab42d6b65b144ebf81d5f47da4
 
 ### Download and install
 
-1. Open [Releases](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager/releases) and download `ets2-ats-mod-manager-0.5.0.pteroext`. This repository is private, so you must be signed in with repository access.
+1. Open [Releases](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager/releases) and download `ets2-ats-mod-manager-0.5.1.pteroext`. This repository is private, so you must be signed in with repository access.
 2. Upload the `.pteroext` file to the Panel host.
 3. In the Panel directory, install and enable the extension:
 
    ```sh
    cd /var/www/pterodactyl
-   php artisan p:extension:install /path/to/ets2-ats-mod-manager-0.5.0.pteroext --enable
+   php artisan p:extension:install /path/to/ets2-ats-mod-manager-0.5.1.pteroext --enable
    ```
 
 4. Reload the Panel in your browser. In **Admin → ETS2-ATS-Mod-Manager**, create an activation for each supported egg: select the egg, game, package directory and enabled status.
@@ -115,7 +115,7 @@ npm run build
 
 Use Node 22.12 or newer, npm 11, and PHP with the required extensions. Full [development and Panel integration instructions](ets2-ats-mod-manager/README.md#development-and-tests), [validation evidence](artifacts/VALIDATION.md) and the [changelog](ets2-ats-mod-manager/CHANGELOG.md) are included.
 
-The [Build and release workflow](.github/workflows/ci.yml) runs checks and packages the extension for pushes, pull requests and manual runs. Download its `.pteroext` and SHA-256 from the run's artifacts. A matching version tag such as `v0.5.0` publishes those tested files as a GitHub prerelease. Ordinary branch builds do not create releases. Build outputs, dependencies and SDK caches are excluded from Git.
+The [Build and release workflow](.github/workflows/ci.yml) runs checks and packages the extension for pushes, pull requests and manual runs. Download its `.pteroext` and SHA-256 from the run's artifacts. A matching version tag such as `v0.5.1` publishes those tested files as a GitHub prerelease. Ordinary branch builds do not create releases. Build outputs, dependencies and SDK caches are excluded from Git.
 
 ## License and attribution
 

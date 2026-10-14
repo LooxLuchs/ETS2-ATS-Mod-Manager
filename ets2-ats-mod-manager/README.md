@@ -2,14 +2,14 @@
 
 Native Pterodactyl v2 extension for Euro Truck Simulator 2 and American Truck Simulator: server package presets, metadata, Workshop links and editable mod load order.
 
-**0.5.0 is the first release and an early development version. Development, documentation and tests were AI-assisted.** See the [main README](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager#readme) for a step-by-step installation and usage guide. The project is [MIT licensed](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager/blob/main/LICENSE); the license is included in the packaged extension.
+**Current version: 0.5.1. This project is in early development; 0.5.0 was its first release. Development, documentation and tests were AI-assisted.** See the [main README](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager#readme) for a step-by-step installation and usage guide. The project is [MIT licensed](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager/blob/main/LICENSE); the license is included in the packaged extension.
 
 ## Installation
 
-Download `ets2-ats-mod-manager-0.5.0.pteroext` from [GitHub Releases](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager/releases), or from a successful build workflow's artifacts. Run this from the Panel directory:
+Download `ets2-ats-mod-manager-0.5.1.pteroext` from [GitHub Releases](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager/releases), or from a successful build workflow's artifacts. Run this from the Panel directory:
 
 ```sh
-php artisan p:extension:install /path/ets2-ats-mod-manager-0.5.0.pteroext --enable --replace
+php artisan p:extension:install /path/ets2-ats-mod-manager-0.5.1.pteroext --enable --replace
 ```
 
 When upgrading from a release with the former extension identity, disable and remove that installed extension first, then install this package. Pterodactyl retains its database tables on removal; activation and preset records are renamed automatically when this release is enabled. The hidden preset directory on each server is moved to the new path on its first operation after any interrupted operation has been recovered.
@@ -145,8 +145,8 @@ Check and package from the Panel directory:
 
 ```sh
 php artisan p:extension:doctor /path/ets2-ats-mod-manager
-php artisan p:extension:pack /path/ets2-ats-mod-manager --output=/path/artifacts/ets2-ats-mod-manager-0.5.0.pteroext
-php /path/ets2-ats-mod-manager/scripts/finalize-package.php /path/artifacts/ets2-ats-mod-manager-0.5.0.pteroext
+php artisan p:extension:pack /path/ets2-ats-mod-manager --output=/path/artifacts/ets2-ats-mod-manager-0.5.1.pteroext
+php /path/ets2-ats-mod-manager/scripts/finalize-package.php /path/artifacts/ets2-ats-mod-manager-0.5.1.pteroext
 ```
 
 CI validates frontend, PHP parser, Panel endpoints and packaging against the pinned commit. Before production rollout, use one ETS2 and one ATS test server: import a valid export, switch presets and restart; then verify changed order, experimental removal and recovery. Claim game compatibility only for cases actually tested.
