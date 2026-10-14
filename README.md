@@ -30,18 +30,10 @@ The extension is tested against Panel commit `8e07ac97ab42d6b65b144ebf81d5f47da4
 
 ### Download and install
 
-1. Open [Releases](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager/releases) and download `ets2-ats-mod-manager-0.5.1.pteroext`. This repository is private, so you must be signed in with repository access.
-2. Upload the `.pteroext` file to the Panel host.
-3. In the Panel directory, install and enable the extension:
-
-   ```sh
-   cd /var/www/pterodactyl
-   php artisan p:extension:install /path/to/ets2-ats-mod-manager-0.5.1.pteroext --enable
-   ```
-
-4. Reload the Panel in your browser. In **Admin → ETS2-ATS-Mod-Manager**, create an activation for each supported egg: select the egg, game, package directory and enabled status.
-
-For future updates, append `--replace` to the installation command. If you used an earlier development build with a different extension identity, follow the [migration instructions](ets2-ats-mod-manager/README.md#installation).
+1. Open [Releases](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager/releases) and download the `.pteroext` file from the latest release.
+2. Open the administration area of your Panel and navigate to **Extensions**.
+3. Click **Install** in the top-right corner and select the `.pteroext` file. If you are upgrading an existing installation, confirm the replacement by selecting **Yes**. Once installation is complete, enable the extension.
+4. Continue with **Configure each egg's package directory** below.
 
 ### Configure each egg's package directory
 
