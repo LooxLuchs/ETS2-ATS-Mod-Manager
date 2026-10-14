@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/presence', [ServerController::class, 'presence']);
 Route::get('/quick', [ServerController::class, 'quick']);
+Route::get('/library', [ServerController::class, 'library']);
 Route::get('/', [ServerController::class, 'index']);
 Route::post('/presets', [ServerController::class, 'store']);
 Route::post('/import', [ServerController::class, 'import']);

@@ -8,7 +8,6 @@ use InvalidArgumentException;
 use Pterodactyl\Contracts\Files\CreatesDirectories;
 use Pterodactyl\Contracts\Files\DeletesFiles;
 use Pterodactyl\Contracts\Files\ListsDirectories;
-use Pterodactyl\Contracts\Files\ReadsFileContents;
 use Pterodactyl\Contracts\Files\RenamesFiles;
 use Pterodactyl\Contracts\Files\WritesFileContents;
 use Pterodactyl\Exceptions\Http\Connection\DaemonConnectionException;
@@ -16,9 +15,16 @@ use Pterodactyl\Models\Server;
 
 final class RemoteFileStore implements FileStore
 {
-    public function __construct(private Server $server, private ListsDirectories $lister,
-        private ReadsFileContents $reader, private WritesFileContents $writer,
-        private CreatesDirectories $creator, private RenamesFiles $renamer, private DeletesFiles $deleter) {}
+    public function __construct(
+        private Server $server,
+        private ListsDirectories $lister,
+        private WritesFileContents $writer,
+        private CreatesDirectories $creator,
+        private RenamesFiles $renamer,
+        private DeletesFiles $deleter,
+        private PackageTransport $transport
+    ) {
+    }
 
     private function assertSafePath(string $path): void
     {
@@ -28,8 +34,24 @@ final class RemoteFileStore implements FileStore
         }
     }
 
-    /** Inspect every ancestor: no operation follows a symlink, including internal storage. */
+    /** Listings are shared only within this call, never across reads or mutations. */
     private function inspect(string $path): ?array
+    {
+        return $this->inspectMany([$path])[$path];
+    }
+
+    private function inspectMany(array $paths): array
+    {
+        $listings = [];
+        $result = [];
+        foreach ($paths as $path) {
+            $result[$path] = $this->inspectWithListings($path, $listings);
+        }
+
+        return $result;
+    }
+
+    private function inspectWithListings(string $path, array &$listings): ?array
     {
         $this->assertSafePath($path);
         $directory = '/';
@@ -37,20 +59,19 @@ final class RemoteFileStore implements FileStore
         $segments = array_values(array_filter(explode('/', $path), fn ($s) => $s !== ''));
         foreach ($segments as $n => $name) {
             try {
-                $entries = $this->lister->list($this->server, $directory);
+                if (! array_key_exists($directory, $listings)) {
+                    $listings[$directory] = [];
+                    foreach ($this->lister->list($this->server, $directory) as $candidate) {
+                        $listings[$directory][$candidate['name']] = $candidate;
+                    }
+                }
             } catch (DaemonConnectionException $e) {
                 if ($e->getStatusCode() === 404) {
                     return null;
                 }
                 throw $e;
             }
-            $entry = null;
-            foreach ($entries as $candidate) {
-                if (($candidate['name'] ?? null) === $name) {
-                    $entry = $candidate;
-                    break;
-                }
-            }
+            $entry = $listings[$directory][$name] ?? null;
             if ($entry === null) {
                 return null;
             }
@@ -71,30 +92,94 @@ final class RemoteFileStore implements FileStore
         return $this->inspect($path) !== null;
     }
 
+    public function presence(array $paths): array
+    {
+        return array_map(fn ($entry) => $entry !== null, $this->inspectMany($paths));
+    }
+
+    public function readPair(string $directory, int $siiLimit, int $datLimit): array
+    {
+        [$sii, $datPath] = $this->pairSource($directory, $siiLimit, $datLimit);
+
+        return ['server_packages.sii' => $sii,
+            'server_packages.dat' => $this->transport->download($this->server, $datPath, $datLimit)];
+    }
+
+    public function snapshotPair(string $directory, int $siiLimit, int $datLimit): array
+    {
+        [$sii, $datPath] = $this->pairSource($directory, $siiLimit, $datLimit);
+
+        return ['sii' => $sii, 'hashes' => ['server_packages.sii' => hash('sha256', $sii),
+            'server_packages.dat' => $this->transport->checksum($this->server, $datPath, $datLimit)]];
+    }
+
+    private function pairSource(string $directory, int $siiLimit, int $datLimit): array
+    {
+        $root = rtrim($directory, '/').'/';
+        $paths = [$root.'server_packages.sii', $root.'server_packages.dat'];
+        $entries = $this->inspectMany($paths);
+        $this->checkFile($entries[$paths[0]], $paths[0], $siiLimit);
+        $this->checkFile($entries[$paths[1]], $paths[1], $datLimit);
+        $sii = $this->transport->download($this->server, $paths[0], $siiLimit)->bytes();
+
+        return [$sii, $paths[1]];
+    }
+
     public function read(string $path, int $limit): string
     {
-        $entry = $this->inspect($path);
+        $this->checkFile($this->inspect($path), $path, $limit);
+        return $this->transport->download($this->server, $path, $limit)->bytes();
+    }
+
+    public function readBlob(string $path, int $limit): PackageFile
+    {
+        $this->checkFile($this->inspect($path), $path, $limit);
+
+        return $this->transport->download($this->server, $path, $limit);
+    }
+
+    public function digest(string $path, int $limit): ?string
+    {
+        return $this->digests([$path => $limit])[$path];
+    }
+
+    public function digests(array $limits): array
+    {
+        $entries = $this->inspectMany(array_keys($limits));
+        $result = [];
+        foreach ($limits as $path => $limit) {
+            if ($entries[$path] === null) {
+                $result[$path] = null;
+                continue;
+            }
+            $this->checkFile($entries[$path], $path, $limit);
+            $result[$path] = $this->transport->checksum($this->server, $path, $limit);
+        }
+
+        return $result;
+    }
+
+    private function checkFile(?array $entry, string $path, int $limit): void
+    {
         if (! $entry || ! ($entry['file'] ?? false)) {
             throw new InvalidArgumentException('Missing package file: '.basename($path));
         }
         if (($entry['size'] ?? 0) > $limit) {
             throw new InvalidArgumentException('The package file exceeds the size limit.');
         }
-        $bytes = $this->reader->read($this->server, $path, $limit);
-        if (strlen($bytes) > $limit) {
-            throw new InvalidArgumentException('The package file exceeds the size limit.');
-        }
-
-        return $bytes;
     }
 
-    public function write(string $path, string $bytes): void
+    public function write(string $path, string|PackageFile $bytes): void
     {
         $entry = $this->inspect($path);
         if ($entry !== null && ! ($entry['file'] ?? false)) {
             throw new InvalidArgumentException('The target is not a regular file.');
         }
-        $this->writer->write($this->server, $path, $bytes);
+        if ($bytes instanceof PackageFile) {
+            $this->transport->upload($this->server, $path, $bytes);
+        } else {
+            $this->writer->write($this->server, $path, $bytes);
+        }
     }
 
     public function directory(string $path): void
@@ -124,8 +209,8 @@ final class RemoteFileStore implements FileStore
 
     public function rename(string $from, string $to): void
     {
-        $this->inspect($from);
-        $entry = $this->inspect($to);
+        $entries = $this->inspectMany([$from, $to]);
+        $entry = $entries[$to];
         if ($entry !== null && ! ($entry['file'] ?? false)) {
             throw new InvalidArgumentException('The target is not a regular file.');
         }

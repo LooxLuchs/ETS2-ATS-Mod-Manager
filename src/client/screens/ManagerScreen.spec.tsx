@@ -5,6 +5,7 @@ import { http } from "@pterodactyl/sdk";
 import ManagerScreen from "./ManagerScreen";
 import {
   overview,
+  library,
   detail,
   download,
   upload,
@@ -16,6 +17,7 @@ import {
 vi.mock("../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api")>()),
   overview: vi.fn(),
+  library: vi.fn(),
   detail: vi.fn(),
   upload: vi.fn(),
   download: vi.fn(),
@@ -116,6 +118,12 @@ function mockSortGeometry(list: HTMLElement) {
 }
 beforeEach(() => {
   vi.mocked(overview).mockResolvedValue(structuredClone(data));
+  vi.mocked(library).mockResolvedValue({
+    presets: data.presets,
+    pending: [],
+    limits: data.limits,
+    active_match: { preset_id: preset.id, source_preset_id: preset.id },
+  });
   vi.mocked(detail).mockResolvedValue({ preset, metadata, snapshots: [] });
   vi.spyOn(http, "post").mockResolvedValue({ data: { ok: true } });
   vi.spyOn(http, "put").mockResolvedValue({ data: { preset } });
@@ -128,6 +136,100 @@ afterEach(() => {
 });
 
 describe("server manager", () => {
+  test("scrolling updates the drag target even when the pointer stays stationary", async () => {
+    vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    mount();
+    await screen.findByText("Highest priority");
+    const list = screen.getByRole("list", { name: "Mod load order" });
+    mockSortGeometry(list);
+    let scrolled = false;
+    for (const item of Array.from(list.children)) {
+      vi.mocked(item.getBoundingClientRect).mockImplementation(() => {
+        const top = Array.from(list.children).indexOf(item) * 50 - (scrolled ? 50 : 0);
+        return {
+          x: 0,
+          y: top,
+          left: 0,
+          right: 100,
+          top,
+          bottom: top + 50,
+          width: 100,
+          height: 50,
+          toJSON: () => ({}),
+        };
+      });
+    }
+    vi.mocked(document.elementFromPoint).mockImplementation(
+      (_x, y) => list.children[Math.floor((y + (scrolled ? 50 : 0)) / 50)] ?? null,
+    );
+    const handle = list.querySelector(".smm-drag-handle")!;
+    fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientX: 10, clientY: 30 });
+    await waitFor(() => expect(document.elementFromPoint).toHaveBeenCalled());
+    scrolled = true;
+    fireEvent.scroll(window);
+    await waitFor(() => expect(list.children[0].textContent).toContain("Lowest priority"));
+    fireEvent.pointerCancel(window, { pointerId: 1 });
+    expect(list.children[0].textContent).toContain("Highest priority");
+  });
+  test.each([99, 100, 120])("%i mods stay editable and warn starting at 100", async (count) => {
+    const manyMods = Array.from({ length: count }, (_, index) => ({
+      ...mods[0],
+      id: `mod.${index}`,
+      mod_name: `Mod ${index}`,
+    }));
+    vi.mocked(overview).mockResolvedValue({
+      ...structuredClone(data),
+      active: {
+        state: "external",
+        preset_id: null,
+        hashes: preset.hashes,
+        metadata: { ...metadata, mods: manyMods, mod_count: count, workshop_count: count },
+      },
+    });
+    mount();
+    await screen.findByText("Mod 0");
+    expect(
+      within(screen.getByRole("list", { name: "Mod load order" })).getAllByRole("listitem"),
+    ).toHaveLength(count);
+    const warning = screen.queryByText(/The Convoy limit is 100 mods/);
+    if (count < 100) expect(warning).toBeNull();
+    else expect(warning?.textContent).toContain(`contains ${count} mods`);
+    fireEvent.click(screen.getByRole("button", { name: "Move Mod 0 down" }));
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
+  test("renaming refreshes summaries and details without reading the active package again", async () => {
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: /^Convoy/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Rename" }));
+    const renamed = { ...preset, name: "Weekend", revision: 2 };
+    vi.mocked(library).mockResolvedValue({
+      presets: [renamed],
+      pending: [],
+      limits: data.limits,
+      active_match: { preset_id: preset.id, source_preset_id: preset.id },
+    });
+    vi.mocked(detail).mockResolvedValue({ preset: renamed, metadata, snapshots: [] });
+    const dialog = await screen.findByRole("dialog", { name: "Rename preset" });
+    fireEvent.change(within(dialog).getByLabelText("Preset name"), {
+      target: { value: "Weekend" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await screen.findByText("Preset renamed.");
+    await screen.findByRole("button", { name: /^Weekend/ });
+    expect(library).toHaveBeenCalledWith(expect.any(String), preset.hashes);
+    expect(overview).toHaveBeenCalledTimes(1);
+  });
+  test("a failed library refresh falls back to the full overview to expose recovery", async () => {
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: /^Convoy/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Rename" }));
+    vi.mocked(library).mockRejectedValueOnce(new Error("Library read failed"));
+    const dialog = await screen.findByRole("dialog", { name: "Rename preset" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(overview).toHaveBeenCalledTimes(2));
+  });
   test("save starts disabled and drag-and-drop edits active files without an edit mode", async () => {
     mount();
     await screen.findByText("Highest priority");

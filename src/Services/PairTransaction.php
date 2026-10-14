@@ -11,9 +11,11 @@ use Throwable;
 /** Durable journal is persisted before the first destination rename. */
 final class PairTransaction
 {
-    public function __construct(private FileStore $files, private PackageUpload $limits) {}
+    public function __construct(private FileStore $files, private PackageUpload $limits)
+    {
+    }
 
-    public function replace(string $id, string $target, array $pair, Closure $persist): array
+    public function replace(string $id, string $target, array $pair, Closure $persist, ?array $originalHashes = null): array
     {
         $this->limits->validate($pair);
         $backup = '/.ets2-ats-mod-manager/operations/'.$id;
@@ -23,20 +25,28 @@ final class PairTransaction
         $phase = 'preparing the package';
         try {
             $this->files->directory($target);
-            $this->files->directory($backup);
             $this->files->directory($backup.'/staged');
+            $snapshot = $originalHashes === null ? $this->files->digests([
+                rtrim($target, '/').'/server_packages.sii' => $this->limits->siiLimit,
+                rtrim($target, '/').'/server_packages.dat' => $this->limits->datLimit,
+            ]) : [];
             foreach (PackageUpload::FILES as $file) {
                 $path = rtrim($target, '/').'/'.$file;
-                $original = null;
-                if ($this->files->exists($path)) {
-                    $bytes = $this->files->read($path, $this->limit($file));
-                    $original = hash('sha256', $bytes);
-                    unset($bytes);
-                }
+                // Edits already read this target under the server lock. Reuse that
+                // snapshot, while retaining the pre-move and post-move checks below.
+                $original = $originalHashes !== null ? $originalHashes[$file] : $snapshot[$path];
                 $journal['originals'][$file] = $original;
                 $staged = $this->workingFile($id, 'staged', $file);
                 $this->files->write($staged, $pair[$file]);
-                $this->verify($staged, $journal['expected'][$file], $file);
+            }
+            $stagedHashes = $this->files->digests([
+                $this->workingFile($id, 'staged', 'server_packages.sii') => $this->limits->siiLimit,
+                $this->workingFile($id, 'staged', 'server_packages.dat') => $this->limits->datLimit,
+            ]);
+            foreach (PackageUpload::FILES as $file) {
+                if ($stagedHashes[$this->workingFile($id, 'staged', $file)] !== $journal['expected'][$file]) {
+                    throw new RuntimeException('File verification failed: '.$file);
+                }
             }
             $persist($journal, 'prepared');
             $persist($journal, 'swapping');
@@ -53,9 +63,15 @@ final class PairTransaction
                 }
                 $this->files->rename($this->workingFile($id, 'staged', $file), rtrim($target, '/').'/'.$file);
             }
+            $phase = 'verifying the installed package';
+            $installed = $this->files->digests([
+                rtrim($target, '/').'/server_packages.sii' => $this->limits->siiLimit,
+                rtrim($target, '/').'/server_packages.dat' => $this->limits->datLimit,
+            ]);
             foreach (PackageUpload::FILES as $file) {
-                $phase = 'verifying '.$file;
-                $this->verify(rtrim($target, '/').'/'.$file, $journal['expected'][$file], $file);
+                if ($installed[rtrim($target, '/').'/'.$file] !== $journal['expected'][$file]) {
+                    throw new RuntimeException('File verification failed: '.$file);
+                }
             }
 
             return $journal;
@@ -82,7 +98,7 @@ final class PairTransaction
             $path = rtrim($journal['target'], '/').'/'.$file;
             $displaced = $this->workingFile($id, 'displaced', $file);
             $original = $journal['originals'][$file] ?? null;
-            $current = $this->files->exists($path) ? hash('sha256', $this->files->read($path, $this->limit($file))) : null;
+            $current = $this->files->digest($path, $this->limit($file));
             if ($current === $original) {
                 continue;
             }
@@ -94,8 +110,8 @@ final class PairTransaction
                 throw new RuntimeException('A target file was changed externally. Automatic recovery was cancelled.');
             }
             if ($original !== null) {
-                $bytes = $this->files->read($journal['backup'].'/'.$file, $this->limit($file));
-                if (hash('sha256', $bytes) !== $original) {
+                $bytes = $this->files->readBlob($journal['backup'].'/'.$file, $this->limit($file));
+                if ($bytes->hash !== $original) {
                     throw new RuntimeException('The backup is corrupted.');
                 }
                 $staged = $this->workingFile($id, 'restore', $file);
@@ -140,7 +156,7 @@ final class PairTransaction
 
     private function verify(string $path, string $hash, string $file): void
     {
-        if (hash('sha256', $this->files->read($path, $this->limit($file))) !== $hash) {
+        if ($this->files->digest($path, $this->limit($file)) !== $hash) {
             throw new RuntimeException('File verification failed: '.$file);
         }
     }
@@ -159,8 +175,8 @@ final class PairTransaction
             rtrim($journal['target'], '/').'/.'.'scs'.'-mm-'.$id.'-rollback-'.$file,
         ];
         foreach ($candidates as $path) {
-            if ($this->files->exists($path)
-                && hash('sha256', $this->files->read($path, $this->limit($file))) === ($journal['expected'][$file] ?? null)) {
+            $digest = $this->files->digest($path, $this->limit($file));
+            if ($digest !== null && $digest === ($journal['expected'][$file] ?? null)) {
                 return true;
             }
         }
@@ -177,7 +193,7 @@ final class PairTransaction
     {
         $hashes = [];
         foreach (PackageUpload::FILES as $name) {
-            $hashes[$name] = hash('sha256', $pair[$name]);
+            $hashes[$name] = $pair[$name] instanceof PackageFile ? $pair[$name]->hash : hash('sha256', $pair[$name]);
         }
 
         return $hashes;

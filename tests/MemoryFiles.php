@@ -1,6 +1,7 @@
 <?php
 
 use Ets2AtsModManager\Services\FileStore;
+use Ets2AtsModManager\Services\PackageFile;
 
 final class MemoryFiles implements FileStore
 {
@@ -21,6 +22,38 @@ final class MemoryFiles implements FileStore
         return array_key_exists($path, $this->files);
     }
 
+    public function presence(array $paths): array
+    {
+        return array_combine($paths, array_map($this->exists(...), $paths));
+    }
+
+    public function readPair(string $directory, int $siiLimit, int $datLimit): array
+    {
+        $root = rtrim($directory, '/').'/';
+
+        return ['server_packages.sii' => $this->read($root.'server_packages.sii', $siiLimit),
+            'server_packages.dat' => $this->readBlob($root.'server_packages.dat', $datLimit)];
+    }
+
+    public function snapshotPair(string $directory, int $siiLimit, int $datLimit): array
+    {
+        $root = rtrim($directory, '/').'/';
+        $sii = $this->read($root.'server_packages.sii', $siiLimit);
+
+        return ['sii' => $sii, 'hashes' => ['server_packages.sii' => hash('sha256', $sii),
+            'server_packages.dat' => $this->digest($root.'server_packages.dat', $datLimit)]];
+    }
+
+    public function digests(array $limits): array
+    {
+        $result = [];
+        foreach ($limits as $path => $limit) {
+            $result[$path] = $this->digest($path, $limit);
+        }
+
+        return $result;
+    }
+
     public function read(string $path, int $limit): string
     {
         if (! $this->exists($path)) {
@@ -33,13 +66,26 @@ final class MemoryFiles implements FileStore
         return $this->files[$path];
     }
 
-    public function write(string $path, string $bytes): void
+    public function readBlob(string $path, int $limit): PackageFile
     {
+        return PackageFile::fromString($this->read($path, $limit));
+    }
+
+    public function digest(string $path, int $limit): ?string
+    {
+        return $this->exists($path) ? hash('sha256', $this->read($path, $limit)) : null;
+    }
+
+    public function write(string $path, string|PackageFile $bytes): void
+    {
+        $bytes = $bytes instanceof PackageFile ? $bytes->bytes() : $bytes;
         $this->writes[] = ['path' => $path, 'bytes' => strlen($bytes)];
         $this->files[$path] = $bytes;
     }
 
-    public function directory(string $path): void {}
+    public function directory(string $path): void
+    {
+    }
 
     public function rename(string $from, string $to): void
     {

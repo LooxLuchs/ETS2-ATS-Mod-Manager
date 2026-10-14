@@ -47,7 +47,9 @@ Tables `ext_ets2_ats_mod_manager_activations`, `ext_ets2_ats_mod_manager_presets
 
 A MySQL/MariaDB session lock serializes extension file operations per server across workers. Overlapping operations wait up to 30 seconds; acquisition and release use the same write connection. New staged files are verified before a switch. Existing files are moved into the operation backup, verified there, and then replaced. This avoids Wings rename-over-existing errors and avoids re-uploading old bytes for a backup. Recovery also supports older copy-based journals. Failures roll back the pair. Interrupted requests appear with **Recover** next time the manager opens; writes stay blocked until recovery. If the egg activation was disabled, an administrator must enable it again for recovery.
 
-Console preset summaries and preset detail views use the last saved database metadata and require no Wings file reads. Selecting a preset therefore does not download its DAT again. Activation, editing, restoration and downloads still verify the package files. Quick Drop files remain in the browser until Apply. Directory creation inspects each ancestor once; inspections are not cached across file operations.
+Console preset summaries and preset detail views use the last saved database metadata and require no Wings file reads. Lists project only their required metadata fields in SQL; full mod arrays are loaded for the selected detail. Selecting a preset therefore does not download its DAT again. Activation, editing, restoration and downloads still verify the package files. Quick Drop files remain in the browser until Apply. Pair reads, paired digest checks and rename preflights share ancestor listings within that call. Listings are discarded before the next operation; no persistent path or content cache is used.
+
+Library-only mutations refresh preset summaries, matching against the last verified active hashes, and selected details without reading installed files. Manual Refresh, activation, active edits, Quick Drop and mutation errors refresh the active files. External SFTP/file-manager changes are detected by fresh hash checks on file operations and full refreshes.
 
 Hashes detect changes through SFTP or the file manager. Externally changed presets are not silently overwritten. Recovery refuses to overwrite later external changes to target files; the owner or administrator must reconcile such files using the operation journal and backups. SFTP and file manager actions do not share the extension lock. Backups are not automatically removed and count against server storage. Preparation, restore copies and displaced files stay inside the operation directory. Only the two final package filenames are installed in the configured game directory. Recovery can read displaced files left beside the active pair by earlier releases, but creates all new working files in the extension directory. Existing files from earlier releases are retained for recovery.
 
@@ -55,9 +57,13 @@ Hashes detect changes through SFTP or the file manager. Externally changed prese
 
 Under **Admin → Extensions → ETS2-ATS-Mod-Manager**, defaults are 4 MiB SII and 64 MiB DAT. ZIP size and total uncompressed contents are each limited to their sum; at most 128 archive entries. Limits are configurable there.
 
-For these defaults, use approximately `upload_max_filesize=68M`, `post_max_size=72M`, `memory_limit=512M` and a matching web server limit. Larger DAT limits need more PHP memory: multiple file versions are held for verification and backups. Uploads pass through the Panel to Wings. PHP and web server limits also apply.
+For these defaults, use approximately `upload_max_filesize=68M`, `post_max_size=72M`, `memory_limit=512M` and a matching web server limit. DAT bytes are streamed through 64 KiB buffers into owned temporary files. Integrity checks hash the response stream without materializing DAT strings. SHA-256 for an immutable temporary file is computed once while reading it. Larger DAT limits therefore primarily need more Panel temporary disk space and transfer time. Allow space for incoming uploads/ZIPs and streamed source/restore files. Temporary files are removed when their owning objects are released; Wings operation backups remain retained. PHP and web server limits also apply.
+
+The authenticated stream adapter uses the pinned Panel's DaemonConnection and Wings' existing contents/write endpoints, preserving the Panel's TLS and timeout policy. Wings does not expose a file checksum endpoint in the checked API, so integrity verification still transfers file contents. File checks have not been replaced with size/mtime comparisons. Edits and restores reuse their already verified target snapshot, while retaining fresh checks immediately before moving originals, on the moved backups and on the final installed pair.
 
 ## Package editing limits
+
+The extension accepts at most 120 referenced mods and rejects larger packages and order requests before file changes. At 100 mods and above, the UI shows a notice about the games' 100-mod Convoy limit. This is an extension acceptance limit, not an increase in the game limit. Existing oversized presets remain listed but cannot be activated or edited until replaced by a supported package. SII documents are cached only within a request, keyed by their complete content hash, with at most two documents retained.
 
 SCS describes `server_packages.dat` as internal map data, exported with the SII using `export_server_packages`. See [SCS Dedicated Server](https://modding.scssoft.com/wiki/Documentation/Tools/Dedicated_Server).
 
@@ -81,6 +87,14 @@ npm test
 npm run test:php
 npm run build
 ```
+
+Optional large-file memory probe (uses temporary disk, no game/server writes):
+
+```sh
+php -d memory_limit=32M tests/stream-memory.php
+```
+
+This generates and validates a 256 MiB DAT with bounded memory. See [optimization results](OPTIMIZATION-RESULTS.md) for scope, measurements and retained safeguards.
 
 The SDK is stored in `.cache/sdk`; dependencies contain no absolute developer paths. This SDK is not currently published to the public npm registry.
 

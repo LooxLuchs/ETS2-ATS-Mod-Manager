@@ -26,7 +26,7 @@ Preset Quick Select, Save as preset and two-file Quick Drop.
 - ETS2 or ATS dedicated-server eggs and access to their server files through Wings.
 - Administrator access to the Panel.
 
-The extension is tested against Panel commit `8e07ac97ab42d6b65b144ebf81d5f47da4f4fad1` on `2.0-develop` and SDK `2.0.0-beta.4`. See [compatibility.json](compatibility.json) for the tested environment. Custom Buttons does not need to be installed.
+The extension is tested against Panel commit `8e07ac97ab42d6b65b144ebf81d5f47da4f4fad1` on `2.0-develop` and SDK `2.0.0-beta.4`. See [compatibility.json](compatibility.json) for the tested environment.
 
 ### Download and install
 
@@ -69,6 +69,8 @@ Select the active package or a preset, then drag a mod by its handle, or use the
 
 Saving a preset updates that preset and creates a backup; activate it separately to update the server. Saving changes to the active package updates only the installed files. **Remove mod** requires confirmation of an experimental change: it removes the SII references but cannot regenerate the DAT map data. **Restore backup** restores an earlier saved version of a preset.
 
+Packages can contain at most **120 mods**. From **100 mods**, Mod Manager and the Quick Switcher show a notice about the games' 100-mod Convoy limit. Accepting up to 120 in the extension does not increase that game limit. Packages above 120 are rejected before replacing any files.
+
 ### Console quick controls
 
 **Mod Manager - Quick Switcher** is below the Console and statistics:
@@ -89,6 +91,8 @@ Saving a preset updates that preset and creates a backup; activate it separately
 Only root administrators configure egg activations. Server owners and root administrators follow normal Panel access rules. Backend endpoints independently enforce permissions and server membership.
 
 The default limits are **4 MiB SII** and **64 MiB DAT**, configurable under **Admin → Extensions → ETS2-ATS-Mod-Manager → Settings**. PHP and web-server upload limits must also allow the pair; recommended starting values are `upload_max_filesize=68M`, `post_max_size=72M` and `memory_limit=512M`.
+
+DAT uploads, ZIP imports, file verification and downloads use streams and temporary files to keep PHP memory use bounded. Allow enough space in the Panel's temporary directory for the package files. Preset-only changes refresh the library without downloading the installed DAT again; **Refresh** always checks the active server files.
 
 Presets, backups and working files are stored under `/.ets2-ats-mod-manager/` within each server. Only the final `server_packages.sii` and `server_packages.dat` are installed in the game directory. Backups are retained and count against disk usage. Back up the server files and extension database tables.
 

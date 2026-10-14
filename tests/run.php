@@ -3,10 +3,12 @@
 declare(strict_types=1);
 require __DIR__.'/bootstrap.php';
 require __DIR__.'/MemoryFiles.php';
+require __DIR__.'/fixtures.php';
 use Ets2AtsModManager\Services\PackageUpload;
 use Ets2AtsModManager\Services\PairTransaction;
 use Ets2AtsModManager\Services\PathTemplate;
 use Ets2AtsModManager\Services\SiiDocument;
+use Ets2AtsModManager\Services\PackageFile;
 
 $passed = 0;
 function check(bool $value, string $message = 'Assertion failed'): void
@@ -38,7 +40,7 @@ function test(string $name, Closure $action): void
 }
 $sii = file_get_contents(__DIR__.'/fixtures/seventy-mods.sii');
 $pair = ['server_packages.sii' => $sii, 'server_packages.dat' => "\x00\xFF\x80map-data\r\n"];
-$limits = new PackageUpload;
+$limits = new PackageUpload();
 test('70 mods, Workshop count, priority, escapes, uint64 and links', function () use ($sii) {
     $m = (new SiiDocument($sii))->metadata();
     check($m['mod_count'] === 70 && $m['workshop_count'] === 55);
@@ -96,7 +98,7 @@ test('both files required, binary DAT preserved, limits enforced', function () u
 function archive(array $entries, ?Closure $modify = null): string
 {
     $path = tempnam(sys_get_temp_dir(), 'scs-test-');
-    $zip = new ZipArchive;
+    $zip = new ZipArchive();
     $zip->open($path, ZipArchive::OVERWRITE);
     foreach ($entries as $name => $bytes) {
         $zip->addFromString($name, $bytes);
@@ -112,7 +114,9 @@ test('ZIP root and subdirectory pairs, extras never extracted', function () use 
     foreach ([$pair, ['folder/server_packages.sii' => $pair['server_packages.sii'], 'folder/server_packages.dat' => $pair['server_packages.dat'], 'README.txt' => 'ignored']] as $entries) {
         $path = archive($entries);
         try {
-            check($limits->zip($path) === $pair);
+            $loaded = $limits->zip($path);
+            check($loaded['server_packages.sii'] === $pair['server_packages.sii']);
+            check($loaded['server_packages.dat']->bytes() === $pair['server_packages.dat']);
         } finally {
             unlink($path);
         }
@@ -154,7 +158,7 @@ test('all Custom Buttons tokens, container prefix and unsafe paths', function ()
     rejects(fn () => PathTemplate::expand('/{{env.P_SERVER_NAME}}', ['P_SERVER_NAME' => '../../escape']));
 });
 test('pair switch verifies backups and destination, keeps binary bytes', function () use ($pair, $limits) {
-    $files = new MemoryFiles;
+    $files = new MemoryFiles();
     $files->files = ['/target/server_packages.sii' => 'old-sii', '/target/server_packages.dat' => "old\x00dat"];
     $states = [];
     $tx = new PairTransaction($files, $limits);
@@ -168,7 +172,7 @@ test('pair switch verifies backups and destination, keeps binary bytes', functio
     check($files->files['/target/server_packages.dat'] === "old\x00dat");
 });
 test('failure on second rename rolls back both originals', function () use ($pair, $limits) {
-    $files = new MemoryFiles;
+    $files = new MemoryFiles();
     $files->files = ['/target/server_packages.sii' => 'old-sii', '/target/server_packages.dat' => 'old-dat'];
     $files->failRename = 2;
     $last = '';
@@ -181,7 +185,7 @@ test('failure on second rename rolls back both originals', function () use ($pai
     check($files->files['/target/server_packages.dat'] === 'old-dat');
 });
 test('failed rollback retains recoverable journal', function () use ($pair, $limits) {
-    $files = new MemoryFiles;
+    $files = new MemoryFiles();
     $files->files = ['/target/server_packages.sii' => 'old-sii', '/target/server_packages.dat' => 'old-dat'];
     $files->beforeRename = function ($f) {
         if ($f->renames >= 2) {
@@ -202,7 +206,7 @@ test('failed rollback retains recoverable journal', function () use ($pair, $lim
     check($files->files['/target/server_packages.sii'] === 'old-sii');
 });
 test('missing original files are removed by rollback', function () use ($pair, $limits) {
-    $files = new MemoryFiles;
+    $files = new MemoryFiles();
     $tx = new PairTransaction($files, $limits);
     $journal = $tx->replace('new', '/target', $pair, fn ($j, $s) => null);
     $tx->rollback('new', $journal);
@@ -213,7 +217,7 @@ test('unterminated block comments are rejected', function () use ($sii) {
     rejects(fn () => new SiiDocument($sii.'/*unfinished'));
 });
 test('rollback does not overwrite third-party changes', function () use ($pair, $limits) {
-    $files = new MemoryFiles;
+    $files = new MemoryFiles();
     $files->files = ['/target/server_packages.sii' => 'old-sii', '/target/server_packages.dat' => 'old-dat'];
     $tx = new PairTransaction($files, $limits);
     $journal = $tx->replace('external', '/target', $pair, fn ($j, $s) => null);
@@ -226,7 +230,7 @@ test('hash identity does not depend on file selection order', function () use ($
 });
 
 test('existing files are moved into backups without uploading their bytes', function () use ($pair, $limits) {
-    $files = new MemoryFiles;
+    $files = new MemoryFiles();
     $files->files = ['/target/server_packages.sii' => 'old-sii', '/target/server_packages.dat' => 'old-dat'];
     $journal = (new PairTransaction($files, $limits))->replace('move', '/target', $pair, fn ($j, $s) => null);
     check($journal['backup_mode'] === 'move');
@@ -236,7 +240,7 @@ test('existing files are moved into backups without uploading their bytes', func
 });
 test('recovery restores originals when interrupted after moving a backup', function () use ($pair, $limits) {
     foreach ([false, true] as $secondGap) {
-        $files = new MemoryFiles;
+        $files = new MemoryFiles();
         $originals = ['server_packages.sii' => 'old-sii', 'server_packages.dat' => 'old-dat'];
         $backup = '/.ets2-ats-mod-manager/operations/gap';
         $journal = ['target' => '/target', 'backup' => $backup, 'backup_mode' => 'move',
@@ -255,7 +259,7 @@ test('recovery restores originals when interrupted after moving a backup', funct
     }
 });
 test('legacy copy journals recover including an interrupted non-overwriting recovery', function () use ($pair, $limits) {
-    $files = new MemoryFiles;
+    $files = new MemoryFiles();
     $backup = '/.ets2-ats-mod-manager/operations/legacy';
     $originals = ['server_packages.sii' => 'old-sii', 'server_packages.dat' => 'old-dat'];
     $journal = ['target' => '/target', 'backup' => $backup,
@@ -273,7 +277,7 @@ test('legacy copy journals recover including an interrupted non-overwriting reco
     check($files->files['/target/server_packages.dat'] === 'old-dat');
 });
 test('a foreign file created during the move gap is preserved', function () use ($pair, $limits) {
-    $files = new MemoryFiles;
+    $files = new MemoryFiles();
     $files->files = ['/target/server_packages.sii' => 'old-sii', '/target/server_packages.dat' => 'old-dat'];
     $files->beforeRename = function ($f) {
         if ($f->renames === 2) {
@@ -291,7 +295,7 @@ test('a foreign file created during the move gap is preserved', function () use 
 });
 test('all working file writes stay in the extension directory on success and failed swaps', function () use ($pair, $limits) {
     foreach ([null, 1, 2, 3, 4] as $failedRename) {
-        $files = new MemoryFiles;
+        $files = new MemoryFiles();
         $originals = ['/target/server_packages.sii' => 'old-sii', '/target/server_packages.dat' => 'old-dat'];
         $files->files = $originals;
         $files->failRename = $failedRename;
@@ -316,7 +320,7 @@ test('all working file writes stay in the extension directory on success and fai
 });
 test('interrupted older recoveries reuse their displaced files without creating working files in the game directory', function () use ($pair, $limits) {
     foreach (['ets2-ats-mm', 'scs'.'-mm'] as $prefix) {
-        $files = new MemoryFiles;
+        $files = new MemoryFiles();
         $backup = '/.ets2-ats-mod-manager/operations/older';
         $originals = ['server_packages.sii' => 'old-sii', 'server_packages.dat' => 'old-dat'];
         $journal = ['target' => '/target', 'backup' => $backup,
@@ -345,6 +349,57 @@ test('JSON digest comparisons ignore order and strictly reject changed values', 
     $changed = $hashes;
     $changed['server_packages.dat'] = hash('sha256', 'changed');
     check(! PairTransaction::hashesMatch($hashes, $changed));
+});
+
+test('mod boundaries accept 99, 100 and 120 and reject 121 or more', function () use ($limits) {
+    foreach ([0, 99, 100, 120] as $count) {
+        check($limits->validate(['server_packages.sii' => packageSii($count), 'server_packages.dat' => 'dat'])['mod_count'] === $count);
+    }
+    foreach ([121, 10000] as $count) {
+        rejects(fn () => $limits->validate(['server_packages.sii' => packageSii($count), 'server_packages.dat' => 'dat']));
+    }
+});
+test('120-mod edits preserve unknown spans, BOM and line endings', function () {
+    $sii = "\xEF\xBB\xBF".str_replace("\n", "\r\n", str_replace('map_name: europe', 'map_name: europe /* retain */'."\n".'future_field: "retain { text }: exactly"', packageSii(120)));
+    $doc = new SiiDocument($sii);
+    $ids = array_column($doc->metadata()['mods'], 'id');
+    $out = $doc->edit(array_reverse($ids), false);
+    check(str_contains($out, 'future_field: "retain { text }: exactly"'));
+    check(str_contains($out, '/* retain */') && str_starts_with($out, "\xEF\xBB\xBF") && str_contains($out, "\r\n"));
+    check(array_column((new SiiDocument($out))->metadata()['mods'], 'id') === array_reverse($ids));
+});
+test('streamed DAT files are binary-safe, bounded and temporary', function () use ($pair, $limits) {
+    $blob = PackageFile::fromString($pair['server_packages.dat']);
+    $path = $blob->path();
+    check($blob->bytes() === $pair['server_packages.dat']);
+    check($blob->hash === hash('sha256', $pair['server_packages.dat']));
+    check($blob->size === strlen($pair['server_packages.dat']));
+    check($limits->validate(['server_packages.sii' => $pair['server_packages.sii'], 'server_packages.dat' => $blob])['mod_count'] === 70);
+    rejects(fn () => PackageFile::fromPath($path, $blob->size - 1));
+    check(PackageFile::fromPath($path, $blob->size)->hash === $blob->hash);
+    unset($blob);
+    check(! is_file($path));
+});
+test('streamed pair swaps and rollbacks retain exactly the original binary files', function () use ($pair, $limits) {
+    $files = new MemoryFiles();
+    $files->files = ['/target/server_packages.sii' => 'old-sii', '/target/server_packages.dat' => "old\0\xffdat"];
+    $streamed = $pair;
+    $streamed['server_packages.dat'] = PackageFile::fromString($pair['server_packages.dat']);
+    $tx = new PairTransaction($files, $limits);
+    $journal = $tx->replace('stream', '/target', $streamed, fn () => null);
+    check($files->files['/target/server_packages.dat'] === $pair['server_packages.dat']);
+    $tx->rollback('stream', $journal);
+    check($files->files['/target/server_packages.dat'] === "old\0\xffdat");
+});
+test('reused original hashes still detect edits made before a swap', function () use ($pair, $limits) {
+    $files = new MemoryFiles();
+    foreach ($pair as $name => $bytes) {
+        $files->files['/target/'.$name] = $bytes;
+    }
+    $expected = PairTransaction::hashes($pair);
+    $files->files['/target/server_packages.dat'] = 'foreign-change';
+    rejects(fn () => (new PairTransaction($files, $limits))->replace('snapshot', '/target', $pair, fn () => null, $expected));
+    check($files->files['/target/server_packages.dat'] === 'foreign-change');
 });
 
 echo $passed.' PHP tests passed'.PHP_EOL;

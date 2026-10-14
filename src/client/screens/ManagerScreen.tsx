@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
@@ -12,6 +12,11 @@ import {
 import { base, date, detail, download, overview, upload, type Mod, type Preset } from "../api";
 import { usePointerSort } from "../usePointerSort";
 import { messages } from "../messages";
+import { queryKeys, refreshPackages } from "../queries";
+import ModCountNotice from "../ModCountNotice";
+import ModRow from "../ModRow";
+import { permissions, operationTimeout } from "../constants";
+import { stagePackageFiles } from "../packageFiles";
 
 type Draft = {
   key: string;
@@ -26,10 +31,7 @@ export default function ManagerScreen() {
   const server = useCurrentServerRequired();
   const id = server.attributes.identifier;
   const cache = useQueryClient();
-  const canWrite = useServerPermission(
-    ["file.read", "file.read-content", "file.create", "file.update"],
-    false,
-  );
+  const canWrite = useServerPermission(permissions.write, false);
   const canDelete = useServerPermission("file.delete");
   const canArchive = useServerPermission("file.archive");
   const [selected, setSelected] = useState("active");
@@ -48,15 +50,16 @@ export default function ManagerScreen() {
   const [restoreId, setRestoreId] = useState<string>();
   const list = useRef<HTMLOListElement>(null);
   const positions = useRef(new Map<string, number>());
+  const applying = useRef(false);
   const query = useQuery({
-    queryKey: ["ets2-ats-mm", id, "overview"],
+    queryKey: queryKeys.overview(id),
     queryFn: ({ signal }) => overview(id, signal),
     retry: false,
   });
   const data = query.data;
   const selectedId = selected === "active" ? data?.active.preset_id : selected;
   const presetQuery = useQuery({
-    queryKey: ["ets2-ats-mm", id, "detail", selectedId],
+    queryKey: queryKeys.detail(id, selectedId ?? null),
     queryFn: ({ signal }) => detail(id, selectedId!, signal),
     enabled: !!selectedId,
     retry: false,
@@ -67,41 +70,43 @@ export default function ManagerScreen() {
   const viewKey = `${id}:${selected}`;
   const currentDraft = draft?.key === viewKey ? draft : null;
   const rows = currentDraft?.mods ?? metadata?.mods ?? [];
+  const visibleRows = useRef(rows);
+  useLayoutEffect(() => {
+    visibleRows.current = rows;
+  }, [rows]);
   const dirty = !!currentDraft;
   const blocked = busy || !!data?.pending.length;
   const canEdit =
     canWrite && !!metadata && (selected === "active" ? !!data?.active.hashes : !!preset);
-  const removed = !!currentDraft?.originalIds.some(
-    (modId) => !rows.some((mod) => mod.id === modId),
-  );
+  const removed = !!currentDraft && rows.length < currentDraft.originalIds.length;
   const currentIsActive = preset && preset.id === data?.active.preset_id;
-  const { draggedId, start: startSort } = usePointerSort({
-    list,
-    key: viewKey,
-    enabled: canEdit && !blocked,
-    rows,
-    before: currentDraft,
-    restore: setDraft,
-    move,
-  });
 
   useLayoutEffect(() => {
+    if (!positions.current.size) return;
     const elements = list.current?.querySelectorAll<HTMLLIElement>("li[data-mod-id]");
     if (!elements) return;
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      positions.current.clear();
+      return;
+    }
+    const animations: { element: HTMLLIElement; delta: number }[] = [];
+    // Read all affected positions before performing any animation writes.
     elements.forEach((element) => {
       const previous = positions.current.get(element.dataset.modId!);
+      if (previous === undefined) return;
       const top = element.getBoundingClientRect().top;
-      const delta = previous === undefined ? 0 : previous - top;
-      if (delta && !reducedMotion && element.animate) {
-        element.getAnimations().forEach((animation) => animation.cancel());
-        element.animate([{ transform: `translateY(${delta}px)` }, { transform: "translateY(0)" }], {
-          duration: 140,
-          easing: "ease-out",
-        });
-      }
+      const delta = previous - top;
+      if (delta && typeof element.animate === "function") animations.push({ element, delta });
     });
     positions.current.clear();
+    animations.forEach(({ element, delta }) => {
+      element.getAnimations().forEach((animation) => animation.cancel());
+      element.animate([{ transform: `translateY(${delta}px)` }, { transform: "translateY(0)" }], {
+        duration: 140,
+        easing: "ease-out",
+      });
+    });
   }, [rows]);
 
   useEffect(() => {
@@ -112,71 +117,92 @@ export default function ManagerScreen() {
     setRemoveId(undefined);
     setError("");
   }, [selected, id]);
-  const refresh = async () => {
-    await cache.invalidateQueries(
-      { queryKey: ["ets2-ats-mm", id, "overview"] },
-      { cancelRefetch: false },
-    );
-    await cache.invalidateQueries(
-      { queryKey: ["ets2-ats-mm", id, "detail"] },
-      { cancelRefetch: false },
-    );
-  };
+  const refresh = (scope: "all" | "library" = "all") => refreshPackages(cache, id, scope);
   async function act(
     action: () => Promise<unknown>,
     message = "",
-    refreshAfter = true,
+    refreshAfter: boolean | "library" = true,
     onSuccess?: () => void,
   ) {
+    if (applying.current) return;
+    applying.current = true;
     setBusy(true);
     setError("");
     try {
       await action();
       if (message) setNotice(message);
-      if (refreshAfter) await refresh();
+      if (refreshAfter) await refresh(refreshAfter === "library" ? "library" : "all");
       onSuccess?.();
     } catch (e) {
       setError(httpErrorToHuman(e));
-      if (refreshAfter) await refresh();
+      if (refreshAfter) {
+        try {
+          await refresh();
+        } catch (refreshError) {
+          setError(httpErrorToHuman(refreshError));
+        }
+      }
     } finally {
+      applying.current = false;
       setBusy(false);
     }
   }
-  function updateOrder(update: (mods: Mod[]) => Mod[]) {
-    if (!canEdit || blocked || !metadata) return;
-    setDraft((previous) => {
-      const baseline: Draft =
-        previous?.key === viewKey
-          ? previous
-          : {
-              key: viewKey,
-              mods: [...metadata.mods],
-              originalIds: metadata.mods.map((mod) => mod.id),
-              ...(selected === "active"
-                ? { hashes: { ...data!.active.hashes! } }
-                : { presetId: preset!.id, revision: preset!.revision }),
-            };
-      const mods = update([...baseline.mods]);
-      if (
-        mods.length === baseline.originalIds.length &&
-        mods.every((mod, index) => mod.id === baseline.originalIds[index])
-      )
-        return null;
-      return { ...baseline, mods };
-    });
-  }
-  function move(modId: string, to: number) {
-    list.current?.querySelectorAll<HTMLLIElement>("li[data-mod-id]").forEach((element) => {
-      positions.current.set(element.dataset.modId!, element.getBoundingClientRect().top);
-    });
-    updateOrder((mods) => {
-      const from = mods.findIndex((mod) => mod.id === modId);
-      if (from < 0 || to < 0 || to >= mods.length || from === to) return mods;
-      const [mod] = mods.splice(from, 1);
-      mods.splice(to, 0, mod);
-      return mods;
-    });
-  }
+  const updateOrder = useCallback(
+    (update: (mods: Mod[]) => Mod[]) => {
+      if (!canEdit || blocked || !metadata) return;
+      setDraft((previous) => {
+        const baseline: Draft =
+          previous?.key === viewKey
+            ? previous
+            : {
+                key: viewKey,
+                mods: [...metadata.mods],
+                originalIds: metadata.mods.map((mod) => mod.id),
+                ...(selected === "active"
+                  ? { hashes: { ...data!.active.hashes! } }
+                  : { presetId: preset!.id, revision: preset!.revision }),
+              };
+        const mods = update([...baseline.mods]);
+        if (
+          mods.length === baseline.originalIds.length &&
+          mods.every((mod, index) => mod.id === baseline.originalIds[index])
+        )
+          return null;
+        return { ...baseline, mods };
+      });
+    },
+    [canEdit, blocked, metadata, viewKey, selected, data, preset],
+  );
+  const move = useCallback(
+    (modId: string, to: number) => {
+      const from = visibleRows.current.findIndex((mod) => mod.id === modId);
+      if (from < 0 || to < 0 || to >= visibleRows.current.length || from === to) return;
+      if (!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+        const elements = list.current?.querySelectorAll<HTMLLIElement>("li[data-mod-id]");
+        for (let index = Math.min(from, to); elements && index <= Math.max(from, to); index++) {
+          const element = elements[index];
+          positions.current.set(element.dataset.modId!, element.getBoundingClientRect().top);
+        }
+      }
+      updateOrder((mods) => {
+        const from = mods.findIndex((mod) => mod.id === modId);
+        if (from < 0 || to < 0 || to >= mods.length || from === to) return mods;
+        const [mod] = mods.splice(from, 1);
+        mods.splice(to, 0, mod);
+        return mods;
+      });
+    },
+    [updateOrder],
+  );
+  const { draggedId, start: startSort } = usePointerSort({
+    list,
+    key: viewKey,
+    enabled: canEdit && !blocked,
+    rows,
+    before: currentDraft,
+    restore: setDraft,
+    move,
+  });
   async function saveChanges() {
     if (!currentDraft || blocked || draggedId) return;
     const body = {
@@ -189,44 +215,44 @@ export default function ManagerScreen() {
           ? http.put(
               `${base(id)}/active/order`,
               { ...body, hashes: currentDraft.hashes },
-              { timeout: 300000 },
+              { timeout: operationTimeout },
             )
           : http.put(
               `${base(id)}/presets/${currentDraft.presetId}/order`,
               { ...body, revision: currentDraft.revision },
-              { timeout: 300000 },
+              { timeout: operationTimeout },
             ),
       selected === "active" ? messages.activeUpdated : messages.presetEdited,
-      true,
+      currentDraft.hashes ? true : "library",
       () => setDraft(null),
     );
   }
   function addFiles(incoming: FileList | null) {
-    if (!incoming) return;
-    const next = Array.from(incoming);
-    if (next.some((file) => file.name.toLowerCase().endsWith(".zip"))) setFiles(next);
-    else
-      setFiles((current) =>
-        Array.from(
-          new Map(
-            [...current.filter((file) => !file.name.toLowerCase().endsWith(".zip")), ...next].map(
-              (file) => [file.name, file],
-            ),
-          ).values(),
-        ),
-      );
+    if (!incoming || !data) return;
+    try {
+      const next = Array.from(incoming);
+      stagePackageFiles([], next, data.limits, canArchive);
+      setFiles((previous) => stagePackageFiles(previous, next, data.limits, canArchive));
+      setError("");
+    } catch (e) {
+      setError((e as Error).message);
+    }
   }
   async function importActive() {
     if (!name.trim()) return;
-    await act(async () => {
-      const result = await http.post<{ preset: Preset }>(
-        `${base(id)}/import`,
-        { name: name.trim(), hashes: importHashes },
-        { timeout: 300000 },
-      );
-      setImportOpen(false);
-      setSelected(result.data.preset.id);
-    }, messages.presetSaved);
+    await act(
+      async () => {
+        const result = await http.post<{ preset: Preset }>(
+          `${base(id)}/import`,
+          { name: name.trim(), hashes: importHashes },
+          { timeout: operationTimeout },
+        );
+        setImportOpen(false);
+        setSelected(result.data.preset.id);
+      },
+      messages.presetSaved,
+      "library",
+    );
   }
 
   return (
@@ -386,7 +412,7 @@ export default function ManagerScreen() {
                             http.post(
                               `${base(id)}/presets/${preset.id}/activate`,
                               { revision: preset.revision },
-                              { timeout: 300000 },
+                              { timeout: operationTimeout },
                             ),
                           messages.activeUpdated,
                         )
@@ -405,6 +431,7 @@ export default function ManagerScreen() {
               )}
               {metadata && (
                 <>
+                  <ModCountNotice count={rows.length} limits={data.limits} />
                   <div className="smm-stats">
                     <div>
                       <strong>{rows.length}</strong>
@@ -478,68 +505,19 @@ export default function ManagerScreen() {
                   )}
                   <ol ref={list} className="smm-mods" aria-label="Mod load order">
                     {rows.map((mod, index) => (
-                      <li
+                      <ModRow
                         key={mod.id}
-                        data-mod-id={mod.id}
-                        className={draggedId === mod.id ? "smm-dragging" : undefined}
-                        draggable={false}
-                        onDragStart={(e) => e.preventDefault()}
-                      >
-                        {canEdit && (
-                          <span
-                            className="smm-drag-handle"
-                            aria-hidden="true"
-                            onPointerDown={(e) => startSort(e, mod.id)}
-                          >
-                            ⠿
-                          </span>
-                        )}
-                        <span className="smm-position">{index + 1}</span>
-                        <div className="smm-mod-name">
-                          <strong>{mod.mod_name || mod.package_name}</strong>
-                          <small>{mod.package_name}</small>
-                        </div>
-                        <div className="smm-tags">
-                          {mod.optional_mod && <span className="smm-badge">Optional</span>}
-                          {mod.workshop_url && (
-                            <a
-                              href={mod.workshop_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="smm-badge smm-link"
-                            >
-                              Workshop ↗
-                            </a>
-                          )}
-                        </div>
-                        {canEdit && (
-                          <div className="smm-row-actions">
-                            <button
-                              disabled={blocked || index === 0}
-                              aria-label={`Move ${mod.mod_name} up`}
-                              onClick={() => move(mod.id, index - 1)}
-                            >
-                              ↑
-                            </button>
-                            <button
-                              disabled={blocked || index === rows.length - 1}
-                              aria-label={`Move ${mod.mod_name} down`}
-                              onClick={() => move(mod.id, index + 1)}
-                            >
-                              ↓
-                            </button>
-                            {canDelete && (
-                              <button
-                                disabled={blocked}
-                                aria-label={`Remove ${mod.mod_name}`}
-                                onClick={() => setRemoveId(mod.id)}
-                              >
-                                ×
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </li>
+                        mod={mod}
+                        index={index}
+                        count={rows.length}
+                        canEdit={canEdit}
+                        canDelete={canDelete}
+                        blocked={blocked}
+                        dragging={draggedId === mod.id}
+                        move={move}
+                        remove={setRemoveId}
+                        start={startSort}
+                      />
                     ))}
                   </ol>
                   {!rows.length && (
@@ -650,11 +628,15 @@ export default function ManagerScreen() {
             className="smm-root smm-form"
             onSubmit={(e) => {
               e.preventDefault();
-              void act(async () => {
-                const result = await upload(id, name, files);
-                setUploadOpen(false);
-                setSelected(result.preset.id);
-              }, "Preset uploaded.");
+              void act(
+                async () => {
+                  const result = await upload(id, name, files);
+                  setUploadOpen(false);
+                  setSelected(result.preset.id);
+                },
+                "Preset uploaded.",
+                "library",
+              );
             }}
           >
             <label>
@@ -689,7 +671,7 @@ export default function ManagerScreen() {
                   {file.name}{" "}
                   <button
                     type="button"
-                    aria-label={`${file.name} aus Upload remove`}
+                    aria-label={`Remove ${file.name} from upload`}
                     onClick={() => setFiles((current) => current.filter((f) => f !== file))}
                   >
                     ×
@@ -744,13 +726,17 @@ export default function ManagerScreen() {
             <Button.Danger
               isLoading={busy}
               onClick={() =>
-                void act(async () => {
-                  await http.delete(`${base(id)}/presets/${preset!.id}`, {
-                    data: { revision: preset!.revision },
-                  });
-                  setConfirmDelete(false);
-                  setSelected("active");
-                }, "Preset deleted.")
+                void act(
+                  async () => {
+                    await http.delete(`${base(id)}/presets/${preset!.id}`, {
+                      data: { revision: preset!.revision },
+                    });
+                    setConfirmDelete(false);
+                    setSelected("active");
+                  },
+                  "Preset deleted.",
+                  "library",
+                )
               }
             >
               Delete
@@ -769,13 +755,17 @@ export default function ManagerScreen() {
             className="smm-root smm-form"
             onSubmit={(e) => {
               e.preventDefault();
-              void act(async () => {
-                await http.put(`${base(id)}/presets/${preset!.id}/name`, {
-                  name,
-                  revision: preset!.revision,
-                });
-                setRenameOpen(false);
-              });
+              void act(
+                async () => {
+                  await http.put(`${base(id)}/presets/${preset!.id}/name`, {
+                    name,
+                    revision: preset!.revision,
+                  });
+                  setRenameOpen(false);
+                },
+                "Preset renamed.",
+                "library",
+              );
             }}
           >
             <label>
@@ -810,14 +800,18 @@ export default function ManagerScreen() {
             <Button
               isLoading={busy}
               onClick={() =>
-                void act(async () => {
-                  await http.post(
-                    `${base(id)}/presets/${preset!.id}/restore/${restoreId}`,
-                    { revision: preset!.revision },
-                    { timeout: 300000 },
-                  );
-                  setRestoreId(undefined);
-                }, "Backup restored. Activate the preset to update the active package.")
+                void act(
+                  async () => {
+                    await http.post(
+                      `${base(id)}/presets/${preset!.id}/restore/${restoreId}`,
+                      { revision: preset!.revision },
+                      { timeout: operationTimeout },
+                    );
+                    setRestoreId(undefined);
+                  },
+                  "Backup restored. Activate the preset to update the active package.",
+                  "library",
+                )
               }
             >
               Restore
