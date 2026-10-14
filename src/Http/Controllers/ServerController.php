@@ -11,6 +11,8 @@ use Ets2AtsModManager\Services\Access;
 use Ets2AtsModManager\Services\Manager;
 use Ets2AtsModManager\Services\PackageOperationException;
 use Ets2AtsModManager\Services\PackageUpload;
+use Ets2AtsModManager\Services\PackageFile;
+use Ets2AtsModManager\Services\ModLimits;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -21,7 +23,9 @@ use ZipArchive;
 
 final class ServerController
 {
-    public function __construct(private Manager $manager, private PackageUpload $upload) {}
+    public function __construct(private Manager $manager, private PackageUpload $upload)
+    {
+    }
 
     public function presence(Request $request, Server $server): array
     {
@@ -47,6 +51,17 @@ final class ServerController
         return $this->manager->quick($server);
     }
 
+    public function library(Request $request, Server $server): array
+    {
+        Access::require($request, $server, Access::READ);
+        $request->validate(['hashes' => ['sometimes', 'array']]);
+
+        return $this->manager->libraryOverview(
+            $server,
+            $request->has('hashes') ? $this->expectedHashes($request) : null
+        );
+    }
+
     public function applyActive(Request $request, Server $server): array
     {
         Access::require($request, $server, Access::WRITE);
@@ -68,11 +83,13 @@ final class ServerController
         return $this->valid(function () use ($server, $preset) {
             $model = $this->manager->preset($server, $preset);
             $snapshots = Operation::where('server_id', $server->id)->where('preset_id', $model->id)
-                ->where('status', 'completed')->whereIn('kind', ['edit', 'restore'])->orderByDesc('created_at')->get();
+                ->where('status', 'completed')->whereIn('kind', ['edit', 'restore'])
+                ->select(['id', 'kind', 'created_at'])->selectRaw("JSON_EXTRACT(journal, '$.before.revision') AS revision")
+                ->orderByDesc('created_at')->get();
 
             return ['preset' => $model, 'metadata' => $model->metadata,
                 'snapshots' => $snapshots->map(fn ($s) => ['id' => $s->id, 'created_at' => $s->created_at,
-                    'revision' => $s->journal['before']['revision'] ?? null, 'kind' => $s->kind])];
+                    'revision' => $s->revision !== null ? (int) $s->revision : null, 'kind' => $s->kind])];
         });
     }
 
@@ -106,7 +123,8 @@ final class ServerController
                 if ($file->getSize() > $limit) {
                     throw new InvalidArgumentException('The file exceeds the upload limit.');
                 }
-                $pair[$name] = file_get_contents($file->getPathname());
+                $pair[$name] = str_ends_with($name, '.sii')
+                    ? file_get_contents($file->getPathname()) : PackageFile::fromPath($file->getPathname(), $limit);
             }
         }
         $this->upload->validate($pair);
@@ -121,8 +139,10 @@ final class ServerController
         ]);
         $expected = $this->expectedHashes($request);
 
-        return $this->valid(fn () => $this->manager->locked($server,
-            fn () => ['preset' => $this->manager->import($server, $data['name'], $expected)]));
+        return $this->valid(fn () => $this->manager->locked(
+            $server,
+            fn () => ['preset' => $this->manager->import($server, $data['name'], $expected)]
+        ));
     }
 
     public function importCurrent(Request $request, Server $server): array
@@ -130,8 +150,10 @@ final class ServerController
         Access::require($request, $server, Access::WRITE);
         $data = $request->validate(['name' => ['required', 'string', 'max:100']]);
 
-        return $this->valid(fn () => $this->manager->locked($server,
-            fn () => ['preset' => $this->manager->importCurrent($server, $data['name'])]));
+        return $this->valid(fn () => $this->manager->locked(
+            $server,
+            fn () => ['preset' => $this->manager->importCurrent($server, $data['name'])]
+        ));
     }
 
     public function activate(Request $request, Server $server, string $preset): array
@@ -150,7 +172,7 @@ final class ServerController
     {
         Access::require($request, $server, Access::WRITE);
         $data = $request->validate(['revision' => ['required', 'integer', 'min:1'],
-            'order' => ['present', 'array', 'max:10000'], 'order.*' => ['required', 'string', 'max:100', 'distinct:strict'],
+            'order' => ['present', 'array', 'max:'.ModLimits::MAX], 'order.*' => ['required', 'string', 'max:100', 'distinct:strict'],
             'confirm_experimental_removal' => ['required', 'boolean']]);
 
         return $this->valid(fn () => $this->manager->locked($server, function () use ($request, $server, $preset, $data) {
@@ -167,15 +189,17 @@ final class ServerController
     {
         Access::require($request, $server, Access::WRITE);
         $data = $request->validate(['hashes' => ['required', 'array'],
-            'order' => ['present', 'array', 'max:10000'], 'order.*' => ['required', 'string', 'max:100', 'distinct:strict'],
+            'order' => ['present', 'array', 'max:'.ModLimits::MAX], 'order.*' => ['required', 'string', 'max:100', 'distinct:strict'],
             'confirm_experimental_removal' => ['required', 'boolean']]);
         if ($data['confirm_experimental_removal']) {
             Access::require($request, $server, ['file.delete']);
         }
         $expected = $this->expectedHashes($request);
 
-        return $this->valid(fn () => $this->manager->locked($server,
-            fn () => $this->manager->editActive($server, $expected, $data['order'], $data['confirm_experimental_removal'])));
+        return $this->valid(fn () => $this->manager->locked(
+            $server,
+            fn () => $this->manager->editActive($server, $expected, $data['order'], $data['confirm_experimental_removal'])
+        ));
     }
 
     public function rename(Request $request, Server $server, string $preset): array
@@ -235,13 +259,14 @@ final class ServerController
                 return [$model, $this->manager->presetPair($server, $model)];
             }, recovery: true);
             $path = tempnam(sys_get_temp_dir(), 'scs-download-');
-            $zip = new ZipArchive;
+            $zip = new ZipArchive();
             try {
                 if ($zip->open($path, ZipArchive::OVERWRITE) !== true) {
                     throw new InvalidArgumentException('Could not create the download.');
                 }
                 foreach ($pair as $name => $bytes) {
-                    if (! $zip->addFromString($name, $bytes)) {
+                    $added = $bytes instanceof PackageFile ? $zip->addFile($bytes->path(), $name) : $zip->addFromString($name, $bytes);
+                    if (! $added) {
                         throw new InvalidArgumentException('Could not create the download.');
                     }
                 }

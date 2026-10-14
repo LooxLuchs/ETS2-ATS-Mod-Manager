@@ -6,6 +6,11 @@ use Ets2AtsModManager\Models\Activation;
 use Ets2AtsModManager\Models\Operation;
 use Ets2AtsModManager\Models\Preset;
 use Ets2AtsModManager\Services\Manager;
+use Ets2AtsModManager\Services\PackageFile;
+use Ets2AtsModManager\Services\PackageTransport;
+use Ets2AtsModManager\Services\WingsPackageTransport;
+use Ets2AtsModManager\Services\PackageUpload;
+use Ets2AtsModManager\Services\PairTransaction;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Foundation\Testing\TestCase;
@@ -26,8 +31,10 @@ use Pterodactyl\Models\Subuser;
 use Pterodactyl\Models\User;
 use Symfony\Component\Process\Process;
 
+require_once __DIR__.'/fixtures.php';
+
 /** A Wings contract fake. HTTP requests still traverse the real panel middleware. */
-final class FakeWings implements CreatesDirectories, DeletesFiles, ListsDirectories, ReadsFileContents, RenamesFiles, WritesFileContents
+final class FakeWings implements CreatesDirectories, DeletesFiles, ListsDirectories, ReadsFileContents, RenamesFiles, WritesFileContents, PackageTransport
 {
     public array $files = [];
 
@@ -40,6 +47,8 @@ final class FakeWings implements CreatesDirectories, DeletesFiles, ListsDirector
     public ?int $failRename = null;
 
     public array $reads = [];
+
+    public ?Closure $beforeRead = null;
 
     public array $writes = [];
 
@@ -69,15 +78,37 @@ final class FakeWings implements CreatesDirectories, DeletesFiles, ListsDirector
 
     public function read(Server $server, string $path, ?int $maxBytes = null): string
     {
+        if ($this->beforeRead) {
+            ($this->beforeRead)($this, $path);
+        }
         $this->reads[] = $path;
+        $bytes = $this->files[$path] ?? throw new RuntimeException('missing fake file');
+        if ($maxBytes !== null && strlen($bytes) > $maxBytes) {
+            throw new InvalidArgumentException('oversized fake file');
+        }
 
-        return $this->files[$path] ?? throw new RuntimeException('missing fake file');
+        return $bytes;
     }
 
     public function write(Server $server, string $path, string $contents): void
     {
         $this->writes[] = ['path' => $path, 'bytes' => strlen($contents)];
         $this->files[$path] = $contents;
+    }
+
+    public function download(Server $server, string $path, int $limit): PackageFile
+    {
+        return PackageFile::fromString($this->read($server, $path, $limit));
+    }
+
+    public function checksum(Server $server, string $path, int $limit): string
+    {
+        return hash('sha256', $this->read($server, $path, $limit));
+    }
+
+    public function upload(Server $server, string $path, PackageFile $file): void
+    {
+        $this->write($server, $path, $file->bytes());
     }
 
     public function create(Server $server, string $name, string $root): void
@@ -146,6 +177,172 @@ final class ManagerIntegrationTest extends TestCase
 
     private string $sii;
 
+    public function test_stream_transport_preserves_binary_bytes_and_uses_authenticated_bounded_requests(): void
+    {
+        $bytes = "\0\xff\x80map-data\r\n";
+        Http::fake(function ($request, $options) use ($bytes) {
+            self::assertTrue($request->hasHeader('Authorization'));
+            self::assertStringContainsString('/api/servers/'.$this->server->uuid.'/files/', $request->url());
+            if ($request->method() === 'GET') {
+                self::assertTrue($options['stream']);
+
+                return Http::response($bytes, 200, ['Content-Length' => (string) strlen($bytes)]);
+            }
+            self::assertSame($bytes, $request->body());
+            self::assertTrue($request->hasHeader('Content-Length', (string) strlen($bytes)));
+
+            return Http::response('', 204);
+        });
+        $transport = new WingsPackageTransport();
+        $file = $transport->download($this->server, '/packages/server_packages.dat', strlen($bytes));
+        self::assertSame($bytes, $file->bytes());
+        self::assertSame(hash('sha256', $bytes), $transport->checksum($this->server, '/packages/server_packages.dat', strlen($bytes)));
+        $transport->upload($this->server, '/staged/server_packages.dat', $file);
+        self::assertSame($bytes, $file->bytes());
+    }
+
+    public function test_stream_transport_rejects_oversized_unannounced_and_truncated_responses(): void
+    {
+        $transport = new WingsPackageTransport();
+        $bytes = '';
+        $headers = [];
+        Http::fake(function () use (&$bytes, &$headers) {
+            return Http::response($bytes, 200, $headers);
+        });
+        foreach (['download', 'checksum'] as $method) {
+            $bytes = '12345';
+            $headers = [];
+            try {
+                $transport->$method($this->server, '/package.dat', 4);
+                self::fail('Unannounced oversized response accepted');
+            } catch (InvalidArgumentException) {
+                self::assertTrue(true);
+            }
+            $bytes = '123';
+            $headers = ['Content-Length' => '5'];
+            try {
+                $transport->$method($this->server, '/package.dat', 5);
+                self::fail('Truncated response accepted');
+            } catch (\Pterodactyl\Exceptions\Http\Connection\DaemonConnectionException $e) {
+                self::assertSame(502, $e->getStatusCode());
+            }
+        }
+    }
+
+    public function test_library_refresh_has_no_wings_io_and_keeps_matching_after_preset_changes(): void
+    {
+        $id = $this->uploadPreset();
+        $this->postJson($this->url.'/presets/'.$id.'/activate', ['revision' => 1])->assertOk();
+        $hashes = \Ets2AtsModManager\Models\Preset::findOrFail($id)->hashes;
+        $order = array_reverse(array_column(\Ets2AtsModManager\Models\Preset::findOrFail($id)->metadata['mods'], 'id'));
+        $this->putJson($this->url.'/presets/'.$id.'/order', ['revision' => 1, 'order' => $order, 'confirm_experimental_removal' => false])->assertOk();
+        $this->wings->reads = [];
+        $this->wings->lists = 0;
+        $this->getJson($this->url.'/library?'.http_build_query(['hashes' => $hashes]))->assertOk()
+            ->assertJsonPath('active_match.preset_id', null)->assertJsonPath('active_match.source_preset_id', $id)
+            ->assertJsonPath('presets.0.revision', 2)->assertJsonMissingPath('presets.0.metadata.mods')
+            ->assertJsonPath('limits.mods', 120)->assertJsonPath('limits.warn_mods', 100);
+        self::assertSame([], $this->wings->reads);
+        self::assertSame(0, $this->wings->lists);
+        $operation = Operation::where('server_id', $this->server->id)->where('kind', 'activate')->firstOrFail();
+        $journal = $operation->journal;
+        $changed = $journal;
+        $changed['expected']['server_packages.dat'] = strtoupper($changed['expected']['server_packages.dat']);
+        $operation->update(['journal' => $changed]);
+        $this->getJson($this->url.'/library?'.http_build_query(['hashes' => $hashes]))->assertOk()->assertJsonPath('active_match.source_preset_id', null);
+        $changed = $journal;
+        $changed['expected']['extra'] = 'foreign';
+        $operation->update(['journal' => $changed]);
+        $this->getJson($this->url.'/library?'.http_build_query(['hashes' => $hashes]))->assertOk()->assertJsonPath('active_match.source_preset_id', null);
+        $journal['expected'] = array_reverse($journal['expected'], true);
+        $operation->update(['journal' => $journal]);
+        $this->getJson($this->url.'/library?'.http_build_query(['hashes' => $hashes]))->assertOk()->assertJsonPath('active_match.source_preset_id', $id);
+        $numericHashes = ['server_packages.sii' => str_repeat('1', 64), 'server_packages.dat' => str_repeat('2', 64)];
+        $numericJournal = '{"expected":{"server_packages.sii":"'.$numericHashes['server_packages.sii'].'","server_packages.dat":'.$numericHashes['server_packages.dat'].'}}';
+        DB::table($operation->getTable())->where('id', $operation->id)->update(['journal' => $numericJournal]);
+        $this->getJson($this->url.'/library?'.http_build_query(['hashes' => $numericHashes]))->assertOk()->assertJsonPath('active_match.source_preset_id', null);
+        $operation->refresh()->update(['journal' => $journal]);
+        $this->getJson($this->url.'/library?'.http_build_query(['hashes' => ['bad' => 'bad']]))->assertUnprocessable();
+        $this->subuser(['file.read']);
+        $this->getJson($this->url.'/library')->assertForbidden();
+    }
+
+    public function test_overview_summaries_omit_mod_arrays_but_details_still_return_all_mods(): void
+    {
+        $id = $this->uploadPreset();
+        $this->getJson($this->url)->assertOk()->assertJsonMissingPath('presets.0.metadata.mods')
+            ->assertJsonPath('presets.0.metadata.mod_count', 70)->assertJsonPath('presets.0.metadata.workshop_count', 55);
+        $this->getJson($this->url.'/presets/'.$id)->assertOk()->assertJsonCount(70, 'metadata.mods');
+    }
+
+    public function test_mod_count_limit_is_enforced_for_both_games_and_before_file_changes(): void
+    {
+        foreach (['ets2', 'ats'] as $game) {
+            Activation::where('egg_id', $this->server->egg_id)->update(['game' => $game]);
+            foreach ([99, 100, 120] as $count) {
+                $this->postActivePair(packageSii($count))->assertOk()->assertJsonPath('metadata.mod_count', $count);
+            }
+            $before = $this->wings->files;
+            $this->wings->writes = [];
+            $this->postActivePair(packageSii(121))->assertUnprocessable();
+            $this->wings->files['/.local/share/Euro Truck Simulator 2/server_packages.sii'] = packageSii(121);
+            $this->postJson($this->url.'/import-current', ['name' => 'Too many'])->assertUnprocessable();
+            self::assertSame([], $this->wings->writes);
+            $this->wings->files = $before;
+            $hashes = $this->getJson($this->url)->assertOk()->json('active.hashes');
+            $this->wings->reads = [];
+            $this->putJson($this->url.'/active/order', ['hashes' => $hashes, 'order' => array_map(fn ($n) => 'mod.'.$n, range(0, 120)),
+                'confirm_experimental_removal' => false])->assertUnprocessable();
+            self::assertSame([], $this->wings->reads);
+            self::assertSame($before, $this->wings->files);
+        }
+    }
+
+    public function test_pair_inspections_are_shared_within_a_call_and_rechecked_on_the_next_call(): void
+    {
+        $this->external_active();
+        $files = app(Manager::class)->files($this->server);
+        $this->wings->lists = 0;
+        $files->readPair('/.local/share/Euro Truck Simulator 2', 4194304, 67108864);
+        self::assertSame(4, $this->wings->lists);
+        $this->wings->symlink = true;
+        $this->expectException(InvalidArgumentException::class);
+        $files->readPair('/.local/share/Euro Truck Simulator 2', 4194304, 67108864);
+    }
+
+    public function test_corrupt_staging_is_detected_without_replacing_the_installed_pair(): void
+    {
+        $this->external_active();
+        $before = $this->wings->files;
+        $this->wings->beforeRead = function ($files, $path) {
+            if (str_contains($path, '/staged/') && str_ends_with($path, '.dat')) {
+                $files->files[$path] = 'corrupted';
+            }
+        };
+        $this->postActivePair()->assertConflict();
+        foreach ($before as $path => $bytes) {
+            self::assertSame($bytes, $this->wings->files[$path]);
+        }
+        self::assertSame('rolled_back', Operation::where('server_id', $this->server->id)->latest()->firstOrFail()->status);
+    }
+
+    public function test_transactions_use_fewer_directory_queries_without_removing_integrity_reads(): void
+    {
+        $this->external_active();
+        $files = app(Manager::class)->files($this->server);
+        $this->wings->lists = 0;
+        $this->wings->reads = [];
+        (new PairTransaction($files, new PackageUpload()))->replace(
+            'io-probe',
+            '/.local/share/Euro Truck Simulator 2',
+            ['server_packages.sii' => $this->sii, 'server_packages.dat' => PackageFile::fromString('new dat')],
+            fn () => null
+        );
+        self::assertLessThan(104, $this->wings->lists);
+        self::assertCount(10, $this->wings->reads);
+        self::assertCount(2, $this->wings->writes);
+    }
+
     public function createApplication()
     {
         $app = require getenv('PANEL_PATH').'/bootstrap/app.php';
@@ -164,8 +361,8 @@ final class ManagerIntegrationTest extends TestCase
         $this->actingAs($this->server->user);
         $this->url = '/api/client/servers/'.$this->server->uuidShort.'/extensions/ets2-ats-mod-manager';
         $this->sii = file_get_contents(__DIR__.'/fixtures/seventy-mods.sii');
-        $this->wings = new FakeWings;
-        foreach ([ListsDirectories::class, ReadsFileContents::class, WritesFileContents::class, CreatesDirectories::class, RenamesFiles::class, DeletesFiles::class] as $contract) {
+        $this->wings = new FakeWings();
+        foreach ([ListsDirectories::class, ReadsFileContents::class, WritesFileContents::class, CreatesDirectories::class, RenamesFiles::class, DeletesFiles::class, PackageTransport::class] as $contract) {
             $this->app->instance($contract, $this->wings);
         }
         Activation::create(['egg_id' => $this->server->egg_id, 'game' => 'ets2', 'path_template' => '/.local/share/Euro Truck Simulator 2', 'enabled' => true]);
@@ -317,8 +514,10 @@ final class ManagerIntegrationTest extends TestCase
             self::assertSame('move', $operation->journal['backup_mode']);
             self::assertSame($previous, $this->wings->files[$operation->journal['backup'].'/server_packages.dat']);
         }
-        $gameFiles = array_filter(array_keys($this->wings->files),
-            fn ($path) => str_starts_with($path, '/.local/share/Euro Truck Simulator 2/'));
+        $gameFiles = array_filter(
+            array_keys($this->wings->files),
+            fn ($path) => str_starts_with($path, '/.local/share/Euro Truck Simulator 2/')
+        );
         self::assertEqualsCanonicalizing([
             '/.local/share/Euro Truck Simulator 2/server_packages.sii',
             '/.local/share/Euro Truck Simulator 2/server_packages.dat',
@@ -729,7 +928,7 @@ final class ManagerIntegrationTest extends TestCase
         $id = $this->uploadPreset();
         $response = $this->with_background_lock(fn () => $this->get($this->url.'/presets/'.$id.'/download')->assertOk());
         $path = $response->baseResponse->getFile()->getPathname();
-        $zip = new ZipArchive;
+        $zip = new ZipArchive();
         self::assertTrue($zip->open($path));
         self::assertSame("\0\xffmap", $zip->getFromName('server_packages.dat'));
         self::assertSame($this->sii, $zip->getFromName('server_packages.sii'));
@@ -743,7 +942,7 @@ final class ManagerIntegrationTest extends TestCase
         $response = $this->get($this->url.'/presets/'.$id.'/download');
         $response->assertOk();
         $path = $response->baseResponse->getFile()->getPathname();
-        $zip = new ZipArchive;
+        $zip = new ZipArchive();
         self::assertTrue($zip->open($path));
         self::assertSame("\0\xffmap", $zip->getFromName('server_packages.dat'));
         self::assertSame($this->sii, $zip->getFromName('server_packages.sii'));

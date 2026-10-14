@@ -10,6 +10,7 @@ use Ets2AtsModManager\Models\Operation;
 use Ets2AtsModManager\Models\Preset;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Collection;
 use InvalidArgumentException;
 use Pterodactyl\Facades\Activity;
 use Pterodactyl\Models\Server;
@@ -17,7 +18,9 @@ use Throwable;
 
 final class Manager
 {
-    public function __construct(private PackageUpload $upload) {}
+    public function __construct(private PackageUpload $upload)
+    {
+    }
 
     public function activation(Server $server): Activation
     {
@@ -44,17 +47,17 @@ final class Manager
 
     public function pair(FileStore $files, string $directory): array
     {
-        return [
-            'server_packages.sii' => $files->read(rtrim($directory, '/').'/server_packages.sii', $this->upload->siiLimit),
-            'server_packages.dat' => $files->read(rtrim($directory, '/').'/server_packages.dat', $this->upload->datLimit),
-        ];
+        return $files->readPair($directory, $this->upload->siiLimit, $this->upload->datLimit);
     }
 
     public function presetPair(Server $server, Preset $preset): array
     {
         $pair = $this->pair($this->files($server), $this->directory($preset));
-        abort_unless(PairTransaction::hashesMatch(PairTransaction::hashes($pair), $preset->hashes), 409,
-            'Preset files were changed outside Mod Manager. Import the package again.');
+        abort_unless(
+            PairTransaction::hashesMatch(PairTransaction::hashes($pair), $preset->hashes),
+            409,
+            'Preset files were changed outside Mod Manager. Import the package again.'
+        );
         $this->upload->validate($pair);
 
         return $pair;
@@ -64,19 +67,22 @@ final class Manager
     {
         $activation = $this->activation($server);
         $target = PathTemplate::resolve($activation->path_template, $server);
-        $presets = Preset::where('server_id', $server->id)->where('game', $activation->game)->orderByDesc('imported_at')->get();
+        $presets = $this->library($server, $activation->game);
         $active = ['state' => 'missing', 'preset_id' => null, 'metadata' => null, 'hashes' => null];
         $files = $this->files($server);
-        $present = array_map(fn ($name) => $files->exists(rtrim($target, '/').'/'.$name), PackageUpload::FILES);
+        $present = $files->presence(array_map(fn ($name) => rtrim($target, '/').'/'.$name, PackageUpload::FILES));
         if (in_array(true, $present, true)) {
             if (in_array(false, $present, true)) {
                 $active['state'] = 'incomplete';
                 $active['message'] = 'One of the two package files is missing from the package directory.';
             } else {
                 try {
-                    $pair = $this->pair($files, $target);
-                    $active['metadata'] = $this->upload->validate($pair);
-                    $active['hashes'] = PairTransaction::hashes($pair);
+                    $snapshot = $files->snapshotPair($target, $this->upload->siiLimit, $this->upload->datLimit);
+                    if ($snapshot['sii'] === '' || $snapshot['hashes']['server_packages.dat'] === hash('sha256', '')) {
+                        throw new InvalidArgumentException('Empty or oversized file: '.($snapshot['sii'] === '' ? 'server_packages.sii' : 'server_packages.dat'));
+                    }
+                    $active['metadata'] = $this->upload->document($snapshot['sii'])->metadata();
+                    $active['hashes'] = $snapshot['hashes'];
                     $match = $presets->first(fn ($p) => PairTransaction::hashesMatch($p->hashes, $active['hashes']));
                     $active['preset_id'] = $match?->id;
                     $active['state'] = $match ? 'preset' : 'external';
@@ -88,16 +94,54 @@ final class Manager
         }
         $active['source_preset_id'] = $active['preset_id'];
         if ($active['source_preset_id'] === null && $active['hashes'] !== null) {
-            $source = Operation::where('server_id', $server->id)->where('kind', 'activate')->where('status', 'completed')
-                ->orderByDesc('created_at')->get()->first(fn ($op) => PairTransaction::hashesMatch($op->journal['expected'] ?? [], $active['hashes']));
-            $active['source_preset_id'] = $source?->preset_id;
+            $active['source_preset_id'] = $this->sourcePreset($server, $active['hashes']);
         }
 
         return ['activation' => ['game' => $activation->game, 'target' => $target],
             'presets' => $presets, 'active' => $active,
-            'pending' => Operation::where('server_id', $server->id)->whereIn('status', Operation::PENDING)
-                ->get(['id', 'kind', 'status', 'created_at']),
-            'limits' => ['sii' => $this->upload->siiLimit, 'dat' => $this->upload->datLimit]];
+            'pending' => $this->pending($server), 'limits' => $this->upload->limits()];
+    }
+
+    private function pending(Server $server): Collection
+    {
+        return Operation::where('server_id', $server->id)->whereIn('status', Operation::PENDING)
+            ->get(['id', 'kind', 'status', 'created_at']);
+    }
+
+    private function sourcePreset(Server $server, array $hashes): ?string
+    {
+        $source = Operation::where('server_id', $server->id)->where('kind', 'activate')->where('status', 'completed')
+            ->whereRaw("JSON_LENGTH(JSON_EXTRACT(journal, '$.expected')) = 2");
+        foreach ($hashes as $file => $hash) {
+            $path = '$.expected."'.$file.'"';
+            $source->whereRaw("JSON_TYPE(JSON_EXTRACT(journal, ?)) = 'STRING' AND BINARY JSON_UNQUOTE(JSON_EXTRACT(journal, ?)) = ?", [$path, $path, $hash]);
+        }
+
+        return $source->orderByDesc('created_at')->value('preset_id');
+    }
+
+    /** Refresh library changes against the browser's last verified active snapshot. */
+    public function libraryOverview(Server $server, ?array $hashes): array
+    {
+        $presets = $this->library($server, $this->activation($server)->game);
+        $match = $hashes === null ? null : $presets->first(fn ($p) => PairTransaction::hashesMatch($p->hashes, $hashes));
+
+        return ['presets' => $presets, 'pending' => $this->pending($server),
+            'active_match' => ['preset_id' => $match?->id,
+                'source_preset_id' => $match?->id ?? ($hashes !== null ? $this->sourcePreset($server, $hashes) : null)],
+            'limits' => $this->upload->limits()];
+    }
+
+    /** List views never hydrate the full mod arrays. Detail keeps the complete metadata. */
+    public function library(Server $server, string $game): Collection
+    {
+        return Preset::where('server_id', $server->id)->where('game', $game)
+            ->select(['id', 'name', 'game', 'revision', 'hashes', 'imported_at', 'updated_at'])
+            ->selectRaw("JSON_OBJECT('mod_count', JSON_EXTRACT(metadata, '$.mod_count'),
+                'workshop_count', JSON_EXTRACT(metadata, '$.workshop_count'),
+                'map_name', JSON_EXTRACT(metadata, '$.map_name'),
+                'exported_at', JSON_EXTRACT(metadata, '$.exported_at')) AS metadata")
+            ->orderByDesc('imported_at')->get();
     }
 
     /** Console controls only need library summaries, not the large active DAT file. */
@@ -106,12 +150,13 @@ final class Manager
         $activation = $this->activation($server);
 
         return ['presets' => Preset::where('server_id', $server->id)->where('game', $activation->game)
+            ->select(['id', 'name', 'revision'])->selectRaw("JSON_EXTRACT(metadata, '$.mod_count') AS mod_count")
             ->orderByDesc('imported_at')->get()->map(fn ($preset) => [
                 'id' => $preset->id, 'name' => $preset->name, 'revision' => $preset->revision,
-                'mod_count' => $preset->metadata['mod_count'],
+                'mod_count' => (int) $preset->mod_count,
             ]),
             'pending' => Operation::where('server_id', $server->id)->whereIn('status', Operation::PENDING)->exists(),
-            'limits' => ['sii' => $this->upload->siiLimit, 'dat' => $this->upload->datLimit]];
+            'limits' => $this->upload->limits()];
     }
 
     public function applyActive(Server $server, array $pair): array
@@ -135,8 +180,11 @@ final class Manager
         abort_unless((int) $result->acquired === 1, 409, 'Server packages are still being processed. Wait a moment and try again.');
         try {
             if (! $recovery) {
-                abort_if(Operation::where('server_id', $server->id)->whereIn('status', Operation::PENDING)->exists(),
-                    409, 'Recover the interrupted operation before making further changes.');
+                abort_if(
+                    Operation::where('server_id', $server->id)->whereIn('status', Operation::PENDING)->exists(),
+                    409,
+                    'Recover the interrupted operation before making further changes.'
+                );
                 $this->migrateLegacyStorage($server);
             }
 
@@ -171,8 +219,11 @@ final class Manager
     {
         $a = $this->activation($server);
 
-        return $this->create($server, $name,
-            $this->pair($this->files($server), PathTemplate::resolve($a->path_template, $server)));
+        return $this->create(
+            $server,
+            $name,
+            $this->pair($this->files($server), PathTemplate::resolve($a->path_template, $server))
+        );
     }
 
     public function activate(Server $server, Preset $preset, int $revision): void
@@ -187,9 +238,12 @@ final class Manager
     {
         $this->revision($preset, $revision);
         $pair = $this->presetPair($server, $preset);
-        $pair['server_packages.sii'] = (new SiiDocument($pair['server_packages.sii']))->edit($order, $confirmed);
+        $originalHashes = PairTransaction::hashes($pair);
+        $edited = $this->upload->document($pair['server_packages.sii'])->editDocument($order, $confirmed);
+        $this->upload->remember($edited);
+        $pair['server_packages.sii'] = $edited->source();
 
-        return $this->replacePreset($server, $preset, $pair, 'edit');
+        return $this->replacePreset($server, $preset, $pair, 'edit', $originalHashes);
     }
 
     public function editActive(Server $server, array $expected, array $order, bool $confirmed): array
@@ -197,21 +251,26 @@ final class Manager
         $activation = $this->activation($server);
         $target = PathTemplate::resolve($activation->path_template, $server);
         $pair = $this->pair($this->files($server), $target);
-        abort_unless(PairTransaction::hashesMatch(PairTransaction::hashes($pair), $expected), 409,
-            'The active package has changed. Refresh and try again.');
-        $pair['server_packages.sii'] = (new SiiDocument($pair['server_packages.sii']))->edit($order, $confirmed);
+        abort_unless(
+            PairTransaction::hashesMatch(PairTransaction::hashes($pair), $expected),
+            409,
+            'The active package has changed. Refresh and try again.'
+        );
+        $edited = $this->upload->document($pair['server_packages.sii'])->editDocument($order, $confirmed);
+        $this->upload->remember($edited);
+        $pair['server_packages.sii'] = $edited->source();
         $metadata = $this->upload->validate($pair);
-        $this->change($server, null, 'edit_active', $target, $pair, fn () => null);
+        $this->change($server, null, 'edit_active', $target, $pair, fn () => null, $expected);
 
         return ['metadata' => $metadata, 'hashes' => PairTransaction::hashes($pair), 'restart_required' => true];
     }
 
-    private function replacePreset(Server $server, Preset $preset, array $pair, string $kind): Preset
+    private function replacePreset(Server $server, Preset $preset, array $pair, string $kind, ?array $originalHashes = null): Preset
     {
         $metadata = $this->upload->validate($pair);
         $this->change($server, $preset, $kind, $this->directory($preset), $pair, function () use ($preset, $pair, $metadata) {
             $preset->fill(['revision' => $preset->revision + 1, 'hashes' => PairTransaction::hashes($pair), 'metadata' => $metadata])->save();
-        });
+        }, $originalHashes);
 
         return $preset->refresh();
     }
@@ -224,9 +283,9 @@ final class Manager
         $pair = $this->pair($this->files($server), $snapshot->journal['backup']);
         abort_unless(PairTransaction::hashesMatch(PairTransaction::hashes($pair), $snapshot->journal['originals']), 409, 'The backup is corrupted.');
         // Read current pair as well so an external edit is never silently overwritten.
-        $this->presetPair($server, $preset);
+        $current = $this->presetPair($server, $preset);
 
-        return $this->replacePreset($server, $preset, $pair, 'restore');
+        return $this->replacePreset($server, $preset, $pair, 'restore', PairTransaction::hashes($current));
     }
 
     public function delete(Server $server, Preset $preset, int $revision): void
@@ -255,7 +314,7 @@ final class Manager
         }
     }
 
-    private function change(Server $server, ?Preset $preset, string $kind, string $target, array $pair, Closure $finalize): void
+    private function change(Server $server, ?Preset $preset, string $kind, string $target, array $pair, Closure $finalize, ?array $originalHashes = null): void
     {
         $id = (string) Str::uuid();
         $before = $preset?->exists ? ['revision' => $preset->revision, 'name' => $preset->name] : null;
@@ -266,7 +325,7 @@ final class Manager
             $operation->update(['journal' => $journal + ['before' => $before], 'status' => $status]);
         };
         try {
-            $journal = $transaction->replace($id, $target, $pair, $persist);
+            $journal = $transaction->replace($id, $target, $pair, $persist, $originalHashes);
             DB::transaction(function () use ($finalize, $operation, $journal, $before) {
                 $finalize();
                 $operation->update(['status' => 'completed', 'journal' => $journal + ['before' => $before]]);

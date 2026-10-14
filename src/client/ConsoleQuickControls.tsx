@@ -10,26 +10,22 @@ import {
   type SdkServer,
   type SlotComponentProps,
 } from "@pterodactyl/sdk";
-import { applyActive, base, presence, quick, type Preset } from "./api";
+import { applyActive, base, quick, type Preset } from "./api";
 import { messages } from "./messages";
-
-const names = ["server_packages.sii", "server_packages.dat"] as const;
+import { queryKeys, refreshPackages } from "./queries";
+import ModCountNotice from "./ModCountNotice";
+import { permissions, packageFiles as names, operationTimeout, refreshInterval } from "./constants";
+import { presenceOptions } from "./presence";
+import { stagePackageFiles } from "./packageFiles";
 
 export default function ConsoleQuickControls({ data: server }: SlotComponentProps<SdkServer>) {
   const id = server.attributes.identifier;
   const location = usePanelLocation();
   const onConsole = /^\/server\/[^/]+\/?$/.test(location.pathname);
-  const allowed = useServerPermission(
-    ["file.read", "file.read-content", "file.create", "file.update"],
-    false,
-  );
+  const allowed = useServerPermission(permissions.write, false);
   const enabled = useQuery({
-    queryKey: ["ets2-ats-mm", id, "presence"],
-    queryFn: ({ signal }) => presence(id, signal),
+    ...presenceOptions(id),
     enabled: allowed && onConsole,
-    staleTime: 15000,
-    refetchInterval: 30000,
-    retry: false,
   });
   if (!onConsole || !allowed || !enabled.data?.enabled) return null;
   return <QuickControls key={id} id={id} />;
@@ -38,10 +34,10 @@ export default function ConsoleQuickControls({ data: server }: SlotComponentProp
 function QuickControls({ id }: { id: string }) {
   const cache = useQueryClient();
   const query = useQuery({
-    queryKey: ["ets2-ats-mm", id, "quick"],
+    queryKey: queryKeys.quick(id),
     queryFn: ({ signal }) => quick(id, signal),
     staleTime: 5000,
-    refetchInterval: 30000,
+    refetchInterval: refreshInterval,
     retry: false,
   });
   const [selected, setSelected] = useState("");
@@ -50,6 +46,7 @@ function QuickControls({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [completedModCount, setCompletedModCount] = useState<number>();
   const [busyMessage, setBusyMessage] = useState("");
   const [saveOpen, setSaveOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
@@ -75,31 +72,22 @@ function QuickControls({ id }: { id: string }) {
 
   function stage(incoming: File[]) {
     if (blocked) return;
-    const limits = data!.limits;
-    const duplicates = new Set<string>();
-    for (const file of incoming) {
-      if (!(names as readonly string[]).includes(file.name) || duplicates.has(file.name)) {
-        setError("Select exactly server_packages.sii and server_packages.dat.");
-        return;
-      }
-      if (!file.size || file.size > (file.name.endsWith(".sii") ? limits.sii : limits.dat)) {
-        setError("Files must be non-empty and within the upload limits.");
-        return;
-      }
-      duplicates.add(file.name);
+    try {
+      stagePackageFiles([], incoming, data!.limits);
+      setFiles((previous) => stagePackageFiles(previous, incoming, data!.limits));
+      setError("");
+      setNotice("");
+    } catch (e) {
+      setError((e as Error).message);
     }
-    setError("");
-    setNotice("");
-    setFiles((previous) =>
-      Array.from(new Map([...previous, ...incoming].map((file) => [file.name, file])).values()),
-    );
   }
 
   async function apply(
-    action: () => Promise<unknown>,
+    action: () => Promise<number | undefined>,
     clear: () => void,
     message = messages.activeUpdated,
     status = "Updating the active package …",
+    scope: "all" | "library" = "all",
   ) {
     if (blocked || applying.current) return;
     applying.current = true;
@@ -107,23 +95,25 @@ function QuickControls({ id }: { id: string }) {
     setBusyMessage(status);
     setError("");
     setNotice("");
+    setCompletedModCount(undefined);
+    let succeeded = false;
     try {
-      await action();
+      const count = await action();
+      setCompletedModCount(count);
+      succeeded = true;
       clear();
       setNotice(message);
     } catch (e) {
       setError(httpErrorToHuman(e));
     } finally {
-      await cache.invalidateQueries(
-        { queryKey: ["ets2-ats-mm", id, "quick"] },
-        { cancelRefetch: false },
-      );
-      await cache.invalidateQueries(
-        { queryKey: ["ets2-ats-mm", id, "overview"] },
-        { cancelRefetch: false },
-      );
-      applying.current = false;
-      setBusy(false);
+      try {
+        await refreshPackages(cache, id, succeeded ? scope : "all");
+      } catch (e) {
+        setError(httpErrorToHuman(e));
+      } finally {
+        applying.current = false;
+        setBusy(false);
+      }
     }
   }
 
@@ -134,15 +124,17 @@ function QuickControls({ id }: { id: string }) {
         const result = await http.post<{ preset: Preset }>(
           `${base(id)}/import-current`,
           { name: saveName.trim() },
-          { timeout: 300000 },
+          { timeout: operationTimeout },
         );
         setSelected(result.data.preset.id);
+        return result.data.preset.metadata?.mod_count;
       },
       () => {
         setSaveOpen(false);
       },
       messages.presetSaved,
       "Saving preset …",
+      "library",
     );
   }
 
@@ -175,12 +167,14 @@ function QuickControls({ id }: { id: string }) {
               onClick={() => {
                 if (preset)
                   void apply(
-                    () =>
-                      http.post(
+                    async () => {
+                      await http.post(
                         `${base(id)}/presets/${preset.id}/activate`,
                         { revision: preset.revision },
-                        { timeout: 300000 },
-                      ),
+                        { timeout: operationTimeout },
+                      );
+                      return preset.mod_count;
+                    },
                     () => setSelected(""),
                   );
               }}
@@ -189,6 +183,7 @@ function QuickControls({ id }: { id: string }) {
             </Button>
           </div>
           <p className="smm-muted">Choose a saved preset, then activate it.</p>
+          <ModCountNotice count={preset?.mod_count ?? 0} limits={data?.limits} />
           <div className="smm-quick-save">
             <Button size="small" isSecondary disabled={blocked} onClick={() => void openSave()}>
               Save as preset
@@ -269,7 +264,7 @@ function QuickControls({ id }: { id: string }) {
               onClick={() => {
                 if (complete)
                   void apply(
-                    () => applyActive(id, files),
+                    async () => (await applyActive(id, files)).metadata?.mod_count,
                     () => setFiles([]),
                   );
               }}
@@ -297,6 +292,9 @@ function QuickControls({ id }: { id: string }) {
         <p className="smm-alert" role="status">
           {notice}
         </p>
+      )}
+      {completedModCount !== undefined && completedModCount !== preset?.mod_count && (
+        <ModCountNotice count={completedModCount} limits={data?.limits} />
       )}
       <Dialog
         open={saveOpen}

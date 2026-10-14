@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Stream DAT uploads, ZIP entries, Wings reads, integrity checks, recovery writes and ZIP downloads through bounded buffers and temporary files. Reuse verified source hashes for edits and restores.
+- Share ancestor inspections within pair reads, digest checks and rename preflights; inspect again on subsequent operations.
+- Return compact preset summaries, filter activation history by hashes in SQL and add indexes for library, pending-operation and snapshot queries.
+- Cache validated SII documents within a request, store tokens compactly, use indexed mod IDs and build edited text in one pass.
+- Limit packages and order requests to 120 mods; show a notice from 100 mods in Mod Manager and Console quick controls.
+- Refresh library-only changes without re-reading the installed DAT; retain full refreshes for file changes and errors.
+- Memoize mod rows, measure only affected animation positions and skip repeated stationary drag hit tests.
+- Share upload validation, permissions, query keys and timeouts. Read the pinned Panel revision from compatibility.json in local SDK preparation and CI.
+
 ## 0.5.2
 
 - Removed the blue game/server-packages label above the Mod Manager heading.

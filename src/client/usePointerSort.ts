@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useCallback,
   useLayoutEffect,
   useRef,
   useState,
@@ -29,6 +30,9 @@ export function usePointerSort<T>(options: {
     key: string;
     x: number;
     y: number;
+    previewX?: number;
+    previewY?: number;
+    previewRows?: { id: string }[];
   } | null>(null);
   const frame = useRef<number>(0);
 
@@ -36,11 +40,21 @@ export function usePointerSort<T>(options: {
     const rect = latest.current.list.current?.getBoundingClientRect();
     return !!rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
   }
-  function preview() {
+  function preview(force = false) {
     const current = gesture.current;
     const state = latest.current;
-    if (!current || !state.enabled || state.key !== current.key || !inside(current.x, current.y))
+    if (!current || !state.enabled || state.key !== current.key) return;
+    if (
+      !force &&
+      current.previewX === current.x &&
+      current.previewY === current.y &&
+      current.previewRows === state.rows
+    )
       return;
+    current.previewX = current.x;
+    current.previewY = current.y;
+    current.previewRows = state.rows;
+    if (!inside(current.x, current.y)) return;
     const element = document
       .elementFromPoint(current.x, current.y)
       ?.closest<HTMLLIElement>("li[data-mod-id]");
@@ -58,11 +72,12 @@ export function usePointerSort<T>(options: {
   function tick() {
     const current = gesture.current;
     if (!current) return;
-    if (inside(current.x, current.y)) {
+    const beforeScroll = window.scrollY;
+    if ((current.y < 80 || current.y > window.innerHeight - 80) && inside(current.x, current.y)) {
       if (current.y < 80) window.scrollBy(0, -10);
       else if (current.y > window.innerHeight - 80) window.scrollBy(0, 10);
     }
-    preview();
+    preview(window.scrollY !== beforeScroll);
     frame.current = requestAnimationFrame(tick);
   }
   function finish(cancel: boolean) {
@@ -85,11 +100,15 @@ export function usePointerSort<T>(options: {
       if (!gesture.current || event.pointerId !== gesture.current.pointerId) return;
       gesture.current.x = event.clientX;
       gesture.current.y = event.clientY;
-      preview();
+      preview(true);
       finish(false);
     }
     function cancel() {
       finish(true);
+    }
+    function invalidateGeometry() {
+      // A stationary pointer can acquire a new target when any ancestor scrolls.
+      if (gesture.current) gesture.current.previewRows = undefined;
     }
     function key(event: KeyboardEvent) {
       if (event.key === "Escape" && gesture.current) {
@@ -102,12 +121,16 @@ export function usePointerSort<T>(options: {
     window.addEventListener("pointercancel", cancel);
     window.addEventListener("blur", cancel);
     window.addEventListener("keydown", key);
+    window.addEventListener("scroll", invalidateGeometry, { capture: true, passive: true });
+    window.addEventListener("resize", invalidateGeometry);
     return () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", cancel);
       window.removeEventListener("blur", cancel);
       window.removeEventListener("keydown", key);
+      window.removeEventListener("scroll", invalidateGeometry, true);
+      window.removeEventListener("resize", invalidateGeometry);
       gesture.current = null;
       cancelAnimationFrame(frame.current);
     };
@@ -116,7 +139,7 @@ export function usePointerSort<T>(options: {
     if (gesture.current && (!options.enabled || gesture.current.key !== options.key)) finish(true);
   }, [options.enabled, options.key]);
 
-  function start(event: PointerEvent, id: string) {
+  const start = useCallback((event: PointerEvent, id: string) => {
     const state = latest.current;
     if (!state.enabled || event.button !== 0 || gesture.current) return;
     event.preventDefault();
@@ -130,6 +153,6 @@ export function usePointerSort<T>(options: {
     };
     setDraggedId(id);
     frame.current = requestAnimationFrame(tick);
-  }
+  }, []);
   return { draggedId, start };
 }

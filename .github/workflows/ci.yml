@@ -52,12 +52,15 @@ jobs:
           const pkg = JSON.parse(readFileSync(root + 'package.json'));
           const lock = JSON.parse(readFileSync(root + 'package-lock.json'));
           const version = manifest.version;
+          const compatibility = JSON.parse(readFileSync(root + 'compatibility.json'));
           if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('Expected a semantic version.');
           if ([pkg.version, lock.version, lock.packages[''].version].some(v => v !== version))
             throw new Error('Manifest and package versions differ.');
           if (process.env.GITHUB_REF_TYPE === 'tag' && process.env.GITHUB_REF_NAME !== 'v' + version)
             throw new Error('Release tag must match the manifest version.');
           appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          appendFileSync(process.env.GITHUB_OUTPUT, `panel_commit=${compatibility.panel_commit}\n`);
+          appendFileSync(process.env.GITHUB_OUTPUT, `panel_repository=${new URL(compatibility.panel_repository).pathname.slice(1)}\n`);
           JS
       - uses: actions/setup-node@v4
         with:
@@ -71,8 +74,8 @@ jobs:
           coverage: none
       - uses: actions/checkout@v4
         with:
-          repository: pterodactyl/panel
-          ref: 8e07ac97ab42d6b65b144ebf81d5f47da4f4fad1
+          repository: ${{ steps.version.outputs.panel_repository }}
+          ref: ${{ steps.version.outputs.panel_commit }}
           path: .panel
       - run: composer install --no-interaction --no-progress --no-scripts
         working-directory: .panel

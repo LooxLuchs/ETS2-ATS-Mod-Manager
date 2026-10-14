@@ -11,7 +11,18 @@ final class PackageUpload
 {
     public const FILES = ['server_packages.sii', 'server_packages.dat'];
 
-    public function __construct(public readonly int $siiLimit = 4194304, public readonly int $datLimit = 67108864) {}
+    /** At most the original and edited SII, scoped to this service/request. */
+    private array $documents = [];
+
+    public function __construct(public readonly int $siiLimit = 4194304, public readonly int $datLimit = 67108864)
+    {
+    }
+
+    public function limits(): array
+    {
+        return ['sii' => $this->siiLimit, 'dat' => $this->datLimit,
+            'mods' => ModLimits::MAX, 'warn_mods' => ModLimits::WARN_AT];
+    }
 
     public function validate(array $pair): array
     {
@@ -20,12 +31,34 @@ final class PackageUpload
         }
         foreach (self::FILES as $file) {
             $limit = str_ends_with($file, '.sii') ? $this->siiLimit : $this->datLimit;
-            if (! is_string($pair[$file]) || strlen($pair[$file]) === 0 || strlen($pair[$file]) > $limit) {
+            $bytes = $pair[$file];
+            $size = $bytes instanceof PackageFile ? $bytes->size : (is_string($bytes) ? strlen($bytes) : 0);
+            if ($size === 0 || $size > $limit) {
                 throw new InvalidArgumentException('Empty or oversized file: '.$file);
             }
         }
 
-        return (new SiiDocument($pair[self::FILES[0]]))->metadata();
+        $sii = $pair[self::FILES[0]];
+
+        return $this->document($sii instanceof PackageFile ? $sii->bytes() : $sii)->metadata();
+    }
+
+    public function document(string $sii): SiiDocument
+    {
+        $hash = hash('sha256', $sii);
+        if (! isset($this->documents[$hash])) {
+            $this->remember(new SiiDocument($sii));
+        }
+
+        return $this->documents[$hash];
+    }
+
+    public function remember(SiiDocument $document): void
+    {
+        $this->documents[hash('sha256', $document->source())] = $document;
+        if (count($this->documents) > 2) {
+            array_shift($this->documents);
+        }
     }
 
     /** Read entries directly; never extract archive paths onto the panel or server. */
@@ -34,7 +67,7 @@ final class PackageUpload
         if (filesize($path) > $this->siiLimit + $this->datLimit) {
             throw new InvalidArgumentException('The ZIP exceeds the upload limit.');
         }
-        $zip = new ZipArchive;
+        $zip = new ZipArchive();
         if ($zip->open($path, ZipArchive::RDONLY) !== true) {
             throw new InvalidArgumentException('Invalid ZIP archive.');
         }
@@ -80,15 +113,14 @@ final class PackageUpload
                     throw new InvalidArgumentException('Could not read the ZIP file.');
                 }
                 try {
-                    $bytes = stream_get_contents($stream, $limit + 1);
+                    $bytes = PackageFile::fromStream($stream, $limit, withCrc: true);
                 } finally {
                     fclose($stream);
                 }
-                if ($bytes === false || strlen($bytes) !== $stat['size'] || strlen($bytes) > $limit
-                    || sprintf('%u', crc32($bytes)) !== sprintf('%u', $stat['crc'])) {
+                if ($bytes->size !== $stat['size'] || $bytes->crc32 !== sprintf('%08x', $stat['crc'])) {
                     throw new InvalidArgumentException('Corrupted or oversized ZIP file.');
                 }
-                $pair[$base] = $bytes;
+                $pair[$base] = str_ends_with($base, '.sii') ? $bytes->bytes() : $bytes;
             }
             $this->validate($pair);
 

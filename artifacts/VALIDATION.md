@@ -1,5 +1,21 @@
 # Validation — 2026-10-14
 
+## Optimization working tree (0.5.2, unreleased changes)
+
+- 28 standalone PHP scenarios pass, including mod-count boundaries, streamed binary pairs and retained rollback/conflict handling.
+- 50 frontend tests pass. New coverage includes 99/100/120-mod notices, Quick Drop results, library-only refresh, concurrent active snapshots and stationary-pointer scrolling.
+- 47 Panel HTTP integration tests pass with 375 assertions against the pinned Panel and the dedicated MariaDB test database. Eight existing PHP 8.5 PDO configuration deprecations remain in the Panel.
+- TypeScript, PHP syntax, production Vite build and extension doctor pass.
+- The index migration is installed and its down/up cycle is verified on the dedicated test database.
+- A 256 MiB DAT validates under a 32 MiB CLI memory limit with 2 MiB peak allocated PHP memory; digest and temporary-file cleanup checks pass. This excludes Panel runtime overhead.
+- Chromium with the real SDK host validates 120-row mouse/touch sorting, the notice, successive local drops, Apply-only requests and 390px mobile width without overflow or page errors. HTTP and Wings remain fakes.
+- Final parser comparison matches the original metadata and all 12 byte-level edit cases across 70/120 mods, LF/CRLF/BOM, reordering, removal and empty lists.
+- The development package is installed in the isolated Panel. Archive integrity, SHA-256, runtime files, documents and excluded development caches are checked against the working tree.
+
+See [optimization results](../docs/OPTIMIZATION-RESULTS.md) for the seven changes, measurements and remaining limits. These checks do not establish real Wings or game compatibility.
+
+## Earlier release evidence
+
 Extension: `ets2-ats-mod-manager` 0.5.0 (first GitHub release)
 
 - Panel: `pterodactyl/panel`, `2.0-develop`, commit `8e07ac97ab42d6b65b144ebf81d5f47da4f4fad1`.

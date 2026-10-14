@@ -68,6 +68,30 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+test.each([99, 100, 120])("quick preset selection warns from 100 mods (%i)", async (count) => {
+  vi.mocked(quick).mockResolvedValue({
+    presets: [{ id: "preset-one", name: "Convoy", revision: 3, mod_count: count }],
+    pending: false,
+    limits: snapshot.limits,
+  });
+  mount();
+  await screen.findByRole("option", { name: `Convoy (${count} mods)` });
+  fireEvent.change(screen.getByLabelText("Preset"), { target: { value: "preset-one" } });
+  const warning = screen.queryByText(/The Convoy limit is 100 mods/);
+  if (count < 100) expect(warning).toBeNull();
+  else expect(warning?.textContent).toContain(`contains ${count} mods`);
+});
+test("Quick Drop shows the mod warning returned by the validated package", async () => {
+  vi.mocked(applyActive).mockResolvedValue({
+    restart_required: true,
+    metadata: { ...snapshot.active.metadata!, mod_count: 120 },
+  });
+  mount();
+  await drop([sii, dat]);
+  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+  await screen.findByText(/This package contains 120 mods/);
+});
+
 test("successive file drops stay local until Apply and never write a preset", async () => {
   mount();
   await drop([sii]);
@@ -123,7 +147,7 @@ test("Apply failures keep the staged pair for retry", async () => {
   ).toBeTruthy();
 });
 test("a running Apply locks both quick controls and prevents duplicate requests", async () => {
-  let finish!: (value: unknown) => void;
+  let finish!: (value: Awaited<ReturnType<typeof applyActive>>) => void;
   vi.mocked(applyActive).mockReturnValue(
     new Promise((resolve) => {
       finish = resolve;
@@ -140,7 +164,7 @@ test("a running Apply locks both quick controls and prevents duplicate requests"
   expect((screen.getByRole("button", { name: "Activate" }) as HTMLButtonElement).disabled).toBe(
     true,
   );
-  await act(async () => finish({}));
+  await act(async () => finish({ restart_required: true }));
   await screen.findByText(/Active package updated/);
 });
 test("selecting a preset only activates it after pressing its button with the known revision", async () => {
