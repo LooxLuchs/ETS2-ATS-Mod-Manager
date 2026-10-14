@@ -1,6 +1,0 @@
-/dist/
-/node_modules/
-/vendor/
-/.cache/
-/coverage/
-*.pteroext

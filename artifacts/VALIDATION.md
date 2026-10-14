@@ -14,6 +14,8 @@ Extension: `ets2-ats-mod-manager` 0.5.0 (first GitHub release)
 
 The earlier version numbers below refer to internal development snapshots. All of their implemented features are included in the first GitHub release, 0.5.0. Development, documentation and tests were AI-assisted. The release package includes the MIT license.
 
+Repository layout validation at 0.5.1: source, manifest, dependency files, scripts and tests now live at the repository root. The root README is retained; the detailed reference lives in `docs/OPERATIONS.md`. Typecheck, 39 frontend tests, 23 PHP scenarios, build, doctor and 39 Panel HTTP tests (289 assertions) pass from the new layout. A newly built archive installs successfully and contains the same root README, MIT license, supporting documentation and both preview images. CI installs the packaged archive before HTTP tests so the nested Panel checkout is never copied into the extension.
+
 The pinned Panel emits eight PDO constant deprecations under PHP 8.5; these originate in its database configuration. The SDK test runtime emits a circular-dependency warning. Tests have no assertion failures.
 
 No real Wings node, ETS2/ATS game process or matching game-generated DAT pair was available. Game compatibility of edited SII packages remains unverified. DAT files are preserved byte-for-byte; Mod removal is explicitly experimental.

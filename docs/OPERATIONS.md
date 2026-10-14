@@ -1,54 +1,6 @@
-# ETS2-ATS-Mod-Manager
+# Operations and development reference
 
-Native Pterodactyl v2 extension for Euro Truck Simulator 2 and American Truck Simulator: server package presets, metadata, Workshop links and editable mod load order.
-
-**Current version: 0.5.1. This project is in early development; 0.5.0 was its first release. Development, documentation and tests were AI-assisted.** See the [main README](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager#readme) for a step-by-step installation and usage guide. The project is [MIT licensed](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager/blob/main/LICENSE); the license is included in the packaged extension.
-
-## Installation
-
-Download `ets2-ats-mod-manager-0.5.1.pteroext` from [GitHub Releases](https://github.com/LooxLuchs/ETS2-ATS-Mod-Manager/releases), or from a successful build workflow's artifacts. Run this from the Panel directory:
-
-```sh
-php artisan p:extension:install /path/ets2-ats-mod-manager-0.5.1.pteroext --enable --replace
-```
-
-When upgrading from a release with the former extension identity, disable and remove that installed extension first, then install this package. Pterodactyl retains its database tables on removal; activation and preset records are renamed automatically when this release is enabled. The hidden preset directory on each server is moved to the new path on its first operation after any interrupted operation has been recovered.
-
-Add `--replace` when updating an existing installation. Reload the Panel afterwards.
-
-Under **Admin → ETS2-ATS-Mod-Manager**, create an activation for each supported egg: select the game, package directory and enabled status. The extension does not change egg configuration or startup arguments. The directory must match the location from which the game server loads its packages.
-
-Typical Linux egg paths:
-
-| Game | Package directory in the server filesystem |
-| --- | --- |
-| ETS2 | `/.local/share/Euro Truck Simulator 2` |
-| ATS | `/.local/share/American Truck Simulator` |
-
-`/` means the server root, normally `/home/container` inside the running container. An entered `/home/container/…` path maps to this root. Wings cannot manage paths outside the server filesystem. The files must be named `server_packages.sii` and `server_packages.dat`.
-
-Validated against Panel commit `8e07ac97ab42d6b65b144ebf81d5f47da4f4fad1` on `2.0-develop` and SDK `2.0.0-beta.4`. Pterodactyl v2 is in development; see [compatibility.json](compatibility.json). MySQL or MariaDB is required. Pterodactyl 1.x and Blueprint are not supported. Custom Buttons does not need to be installed.
-
-## Using the manager
-
-Enabled eggs show **Mod Manager** in server navigation. The manager opens the currently installed package files. It cannot determine whether the running game process has loaded them. The interface, extension errors and help text use English. Uploaded preset and mod names retain their original text.
-
-- **Console → Mod Manager - Quick Switcher:** Located below the Console and statistics. Preset Quick Select and Quick Drop have separate cards. Colors follow the active Panel theme.
-- **Preset Quick Select:** Choose a saved preset, then press **Activate**. Selection alone does not change files. The selector and activation button share a compact row.
-- **Quick Switcher → Save as preset:** Opens a name dialog and saves the active server files as a new preset. Existing presets and staged Quick Drop files stay unchanged. The new preset appears in Quick Select immediately. The name dialog opens immediately. The current pair is read once from the active directory when saving, so it captures the files installed at confirmation. Staged and stored preset files are still verified before completion. This action needs no server restart.
-- **Quick Drop:** Drop or choose `server_packages.sii` and `server_packages.dat` together or one at a time. Check marks show the staged files. Remove individual files or drop a replacement to change the selection. Only **Apply** uploads a complete pair, backs up the previous files and replaces the active package. Saved presets stay unchanged. Failed requests retain the selection for retry. Leaving the Console or reloading discards the local selection. Restart the game server afterwards.
-- **Upload preset:** Enter a name and choose both files together or one at a time; alternatively, upload a ZIP. **Save** validates the complete pair. Incomplete uploads are rejected. Staged files stay local until saving and do not survive a reload.
-- **ZIP:** Exactly one package pair in the same directory, including a subdirectory. Other safe files are ignored. Duplicate package files, unsafe paths, symlinks, encrypted entries and extraction limits are rejected.
-- **Save as preset:** Enter a name in the dialog to save the active pair as a new preset. An already matching preset can also be saved under a new name.
-- **Activate:** Replaces both active files, including while the server is running. No power action is performed. Restart the game server to load the package. Two file renames are not an atomic pair replacement; a game process starting during a switch could read an intermediate state.
-- **Load order:** Drag a mod by its handle with mouse or touch, or use the arrow buttons. Rows preview their positions during dragging, animate briefly and scroll at viewport edges. Escape or release outside the list restores the draft from before that drag. Highest priority appears first, matching the last `mod_list` entry in the SII.
-- **Save:** Disabled until changes exist. Preset changes overwrite that preset with a backup; activate it separately to update the active files. Changes to the active package update only the server files with a backup, even without a matching preset. Saved presets stay unchanged. Restart the game server after active changes.
-- **Reset:** Discards unsaved changes. Returning to the original order disables Save again. Package selection and activation stay disabled while a draft is dirty.
-- **Remove mod:** Requires explicit confirmation of the experimental operation and `file.delete`. The mod reference and its SII unit are removed; counts and indices are updated. Map data is not regenerated.
-- **Restore backup:** Replaces the selected preset with a previous version. The current preset is backed up first. Activate it to update the active package.
-- **Download:** Downloads the stored package pair as a ZIP. **Delete preset** removes the library files; active server files are retained.
-
-Metadata includes total mods, Workshop mods, map module from `map_name`, import date and separate export date from `time_stamp`. Dates use English formatting in the browser's local timezone. Truncated mod names are shown as exported. Workshop links use `mod_id`; no Steam API key or metadata lookup is needed.
+See the [main README](../README.md) for installation, egg configuration and everyday usage. This reference covers path placeholders, permissions, storage, recovery, limits and development.
 
 ## Path placeholders
 
@@ -117,7 +69,7 @@ No real ETS2/ATS game process or valid game-generated binary pair was available 
 
 Based on [Building Extensions](https://docs.pterodactyl.io/v2/extensions/building) and [Testing and Packaging](https://docs.pterodactyl.io/v2/extensions/testing-and-packaging). Requires Node 22.12 or newer, npm 11, PHP 8.3 or newer with `mbstring` and `zip`; Panel integration also requires its Composer extensions, including `intl` and `pdo_mysql`.
 
-From the extension directory:
+From the repository root:
 
 ```sh
 # Fetch the pinned Panel, build its SDK test runtime and copy the SDK.
@@ -132,7 +84,7 @@ npm run build
 
 The SDK is stored in `.cache/sdk`; dependencies contain no absolute developer paths. This SDK is not currently published to the public npm registry.
 
-Integration tests require a separate v2 Panel checkout and a dedicated MySQL/MariaDB database with `test` in its name. Prepare Panel Composer dependencies, run Panel migrations and install the built extension, then run from the extension directory:
+Integration tests require a separate v2 Panel checkout and a dedicated MySQL/MariaDB database with `test` in its name. Prepare Panel Composer dependencies, run Panel migrations and install the built extension, then run from the repository root:
 
 ```sh
 PANEL_PATH=/path/panel DB_DATABASE=scs_manager_test DB_USERNAME=testuser DB_PASSWORD=testpass \

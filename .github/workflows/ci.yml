@@ -47,7 +47,7 @@ jobs:
         run: |
           node --input-type=module <<'JS'
           import { readFileSync, appendFileSync } from 'node:fs';
-          const root = 'ets2-ats-mod-manager/';
+          const root = './';
           const manifest = JSON.parse(readFileSync(root + 'extension.json'));
           const pkg = JSON.parse(readFileSync(root + 'package.json'));
           const lock = JSON.parse(readFileSync(root + 'package-lock.json'));
@@ -76,23 +76,24 @@ jobs:
           path: .panel
       - run: composer install --no-interaction --no-progress --no-scripts
         working-directory: .panel
-      - run: npm run prepare:sdk -- ../.panel
-        working-directory: ets2-ats-mod-manager
+      - run: npm run prepare:sdk -- .panel
       - run: npm ci && npm run typecheck && npm test && npm run test:php && npm run build
-        working-directory: ets2-ats-mod-manager
       - run: php artisan migrate --force
         working-directory: .panel
-      - run: php .panel/artisan p:extension:install "$GITHUB_WORKSPACE/ets2-ats-mod-manager" --enable
-      - run: PANEL_PATH="$GITHUB_WORKSPACE/.panel" php .panel/vendor/bin/phpunit -c ets2-ats-mod-manager/tests/phpunit.xml
       - name: Package, include license and verify checksum
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          php .panel/artisan p:extension:doctor ets2-ats-mod-manager
-          php .panel/artisan p:extension:pack ets2-ats-mod-manager --output="artifacts/ets2-ats-mod-manager-${VERSION}.pteroext"
-          php ets2-ats-mod-manager/scripts/finalize-package.php "artifacts/ets2-ats-mod-manager-${VERSION}.pteroext"
+          php .panel/artisan p:extension:doctor .
+          php .panel/artisan p:extension:pack . --output="artifacts/ets2-ats-mod-manager-${VERSION}.pteroext"
+          php scripts/finalize-package.php "artifacts/ets2-ats-mod-manager-${VERSION}.pteroext"
           cd artifacts
           sha256sum -c "ets2-ats-mod-manager-${VERSION}.sha256"
+      - name: Install the packaged extension
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: php .panel/artisan p:extension:install "$GITHUB_WORKSPACE/artifacts/ets2-ats-mod-manager-${VERSION}.pteroext" --enable
+      - run: PANEL_PATH="$GITHUB_WORKSPACE/.panel" php .panel/vendor/bin/phpunit -c tests/phpunit.xml
       - uses: actions/upload-artifact@v4
         with:
           name: ets2-ats-mod-manager-${{ steps.version.outputs.version }}

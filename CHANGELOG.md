@@ -19,4 +19,4 @@ This is the first GitHub release and an early development version. Development, 
 - Theme-aware interface and English labels, messages and documentation.
 - MIT license, installation and usage guides, and GitHub Actions build/test/package and prerelease publishing.
 
-Earlier internal snapshots are documented in [development history](../docs/DEVELOPMENT-HISTORY.md).
+Earlier internal snapshots are documented in [development history](docs/DEVELOPMENT-HISTORY.md).

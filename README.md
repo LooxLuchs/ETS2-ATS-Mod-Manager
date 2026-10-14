@@ -26,7 +26,7 @@ Preset Quick Select, Save as preset and two-file Quick Drop.
 - ETS2 or ATS dedicated-server eggs and access to their server files through Wings.
 - Administrator access to the Panel.
 
-The extension is tested against Panel commit `8e07ac97ab42d6b65b144ebf81d5f47da4f4fad1` on `2.0-develop` and SDK `2.0.0-beta.4`. See [compatibility.json](ets2-ats-mod-manager/compatibility.json) for the tested environment. Custom Buttons does not need to be installed.
+The extension is tested against Panel commit `8e07ac97ab42d6b65b144ebf81d5f47da4f4fad1` on `2.0-develop` and SDK `2.0.0-beta.4`. See [compatibility.json](compatibility.json) for the tested environment. Custom Buttons does not need to be installed.
 
 ### Download and install
 
@@ -48,7 +48,7 @@ Use the directory from which that dedicated server actually loads `server_packag
 
 Paths are relative to the server filesystem: `/` is normally `/home/container` inside the game container. `/home/container/…` is normalized to that root. The extension does not change startup arguments or egg configuration. Make sure the configured path agrees with your server setup.
 
-The path editor supports the same server-value placeholders as Custom Buttons, such as `{{env.P_SERVER_NAME}}` and `{{env.P_SERVER_UUID}}`. See the [full placeholder list](ets2-ats-mod-manager/README.md#path-placeholders).
+The path editor supports the same server-value placeholders as Custom Buttons, such as `{{env.P_SERVER_NAME}}` and `{{env.P_SERVER_UUID}}`. See the [full placeholder list](docs/OPERATIONS.md#path-placeholders).
 
 ## 2. Use the Mod Manager
 
@@ -92,11 +92,11 @@ The default limits are **4 MiB SII** and **64 MiB DAT**, configurable under **Ad
 
 Presets, backups and working files are stored under `/.ets2-ats-mod-manager/` within each server. Only the final `server_packages.sii` and `server_packages.dat` are installed in the game directory. Backups are retained and count against disk usage. Back up the server files and extension database tables.
 
-Failed operations restore the previous pair when possible. An interrupted operation appears with **Recover** in the manager; resolve it before making more changes. Hash checks prevent overwriting files changed externally through SFTP or the file manager. See [storage and recovery details](ets2-ats-mod-manager/README.md#permissions-and-storage).
+Failed operations restore the previous pair when possible. An interrupted operation appears with **Recover** in the manager; resolve it before making more changes. Hash checks prevent overwriting files changed externally through SFTP or the file manager. See [storage and recovery details](docs/OPERATIONS.md#permissions-and-storage).
 
 ## Development, tests and packaging
 
-The source is in [ets2-ats-mod-manager/](ets2-ats-mod-manager/). From that directory:
+The project lives directly in the repository root, with source code in [src/](src/). Run these commands from the repository root:
 
 ```sh
 npm run prepare:sdk
@@ -107,7 +107,7 @@ npm run test:php
 npm run build
 ```
 
-Use Node 22.12 or newer, npm 11, and PHP with the required extensions. Full [development and Panel integration instructions](ets2-ats-mod-manager/README.md#development-and-tests), [validation evidence](artifacts/VALIDATION.md) and the [changelog](ets2-ats-mod-manager/CHANGELOG.md) are included.
+Use Node 22.12 or newer, npm 11, and PHP with the required extensions. Full [development and Panel integration instructions](docs/OPERATIONS.md#development-and-tests), [validation evidence](artifacts/VALIDATION.md) and the [changelog](CHANGELOG.md) are included.
 
 The [Build and release workflow](.github/workflows/ci.yml) runs checks and packages the extension for pushes, pull requests and manual runs. Download its `.pteroext` and SHA-256 from the run's artifacts. A matching version tag such as `v0.5.1` publishes those tested files as a GitHub release marked **Latest**, visible in the repository's Releases sidebar. Ordinary branch builds do not create releases. Build outputs, dependencies and SDK caches are excluded from Git.
 

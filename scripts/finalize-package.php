@@ -22,9 +22,14 @@ try {
         throw new RuntimeException('Package manifest differs from the source manifest.');
     }
     $documents = [
-        'LICENSE' => dirname($extension).'/LICENSE',
+        'LICENSE' => $extension.'/LICENSE',
         'README.md' => $extension.'/README.md',
         'CHANGELOG.md' => $extension.'/CHANGELOG.md',
+        'compatibility.json' => $extension.'/compatibility.json',
+        'docs/OPERATIONS.md' => $extension.'/docs/OPERATIONS.md',
+        'docs/DEVELOPMENT-HISTORY.md' => $extension.'/docs/DEVELOPMENT-HISTORY.md',
+        'docs/previews/modmanager.png' => $extension.'/docs/previews/modmanager.png',
+        'docs/previews/mod_manager-quickswitch.png' => $extension.'/docs/previews/mod_manager-quickswitch.png',
     ];
     foreach ($documents as $name => $source) {
         if (! is_file($source) || ! $zip->addFile($source, $name)) {
