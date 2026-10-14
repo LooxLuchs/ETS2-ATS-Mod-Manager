@@ -2,7 +2,7 @@
 
 Manage Euro Truck Simulator 2 and American Truck Simulator dedicated-server packages from Pterodactyl v2. Keep named presets, switch the active package, view package metadata and Workshop links, and edit mod load order.
 
-**Current version: 0.5.2. This project is in early development; 0.5.0 was its first release. Development was AI-assisted, including implementation, documentation and automated tests.** Automated checks cover the extension and Panel integration with simulated Wings file operations; game compatibility has not yet been verified on a real ETS2/ATS server. Removing mods is experimental because the binary map data is preserved rather than regenerated.
+This project is in early development. The extension was developed with AI assistance. Removing mods is experimental because the binary map data is preserved rather than regenerated.
 
 ## Preview
 
@@ -108,8 +108,6 @@ npm run build
 ```
 
 Use Node 22.12 or newer, npm 11, and PHP with the required extensions. Full [development and Panel integration instructions](docs/OPERATIONS.md#development-and-tests), [validation evidence](artifacts/VALIDATION.md) and the [changelog](CHANGELOG.md) are included.
-
-The [Build and release workflow](.github/workflows/ci.yml) runs checks and packages the extension for pushes, pull requests and manual runs. Download its `.pteroext` and SHA-256 from the run's artifacts. A matching version tag such as `v0.5.2` publishes those tested files as a GitHub release marked **Latest**, visible in the repository's Releases sidebar. Ordinary branch builds do not create releases. Build outputs, dependencies and SDK caches are excluded from Git.
 
 ## License and attribution
 
