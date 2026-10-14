@@ -1,4 +1,4 @@
-# ETS2-ATS-Mod-Manager
+# ETS2-ATS-Mod-Manager for Pterodactyl v2
 
 Manage Euro Truck Simulator 2 and American Truck Simulator dedicated-server packages from Pterodactyl v2. Keep named presets, switch the active package, view package metadata and Workshop links, and edit mod load order.
 
